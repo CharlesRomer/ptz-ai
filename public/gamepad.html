@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTZ Volunteer Control</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #080808;
+      color: #e5e5e5;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: #0f0f0f;
+      border-bottom: 1px solid #1e1e1e;
+    }
+    header h1 { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: -0.01em; }
+    header a {
+      font-size: 13px;
+      color: #555;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    header a:hover { color: #aaa; }
+
+    /* ── STOP ALL bar ────────────────────────────────────────────────────────── */
+    .stop-bar { padding: 16px 24px; background: #0f0f0f; border-bottom: 1px solid #1e1e1e; }
+
+    #stop-all {
+      width: 100%;
+      padding: 22px 16px;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: #b91c1c;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.1s, box-shadow 0.1s;
+      box-shadow: 0 0 0 0 #b91c1c44;
+    }
+    #stop-all:hover { background: #dc2626; box-shadow: 0 0 20px #dc262644; }
+    #stop-all:active { background: #991b1b; transform: scale(0.995); }
+    #stop-all.fired { background: #450a0a; box-shadow: none; }
+
+    /* ── Controller cards ────────────────────────────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      padding: 20px 24px;
+      flex: 1;
+    }
+
+    .card {
+      background: #0f0f0f;
+      border: 2px solid #1e1e1e;
+      border-radius: 14px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      transition: border-color 0.25s;
+    }
+    .card.is-connected { border-color: #14532d; }
+    .card.is-active    { border-color: #1e3a8a; }
+
+    /* Card header */
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .ctrl-num {
+      width: 52px;
+      height: 52px;
+      background: #1a1a1a;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .card-meta { flex: 1; }
+    .card-meta .sublabel {
+      font-size: 11px;
+      color: #444;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+    }
+    .card-meta .cam-name { font-size: 20px; font-weight: 700; color: #fff; line-height: 1; }
+    .card-meta .cam-ip   { font-size: 12px; color: #3f3f3f; font-family: 'SF Mono', monospace; margin-top: 5px; }
+
+    /* Connection badge */
+    .conn-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      background: #0a0a0a;
+      border-radius: 8px;
+    }
+    .conn-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #2a2a2a;
+      flex-shrink: 0;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .conn-dot.on { background: #22c55e; box-shadow: 0 0 10px #22c55e55; }
+    .conn-label {
+      font-size: 15px;
+      font-weight: 600;
+      color: #3a3a3a;
+      transition: color 0.3s;
+    }
+    .conn-label.on { color: #22c55e; }
+
+    /* Input activity panel */
+    .activity {
+      background: #0a0a0a;
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+    .activity-title {
+      font-size: 10px;
+      color: #333;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 2px;
+    }
+    .axis-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .axis-name {
+      font-size: 11px;
+      color: #444;
+      width: 34px;
+      flex-shrink: 0;
+    }
+    .track {
+      flex: 1;
+      height: 5px;
+      background: #181818;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 3px;
+      transition: width 0.04s linear;
+    }
+    .fill-pt   { background: #3b82f6; }
+    .fill-zoom { background: #8b5cf6; }
+    .fill-focus{ background: #f59e0b; }
+    .axis-val {
+      font-size: 11px;
+      color: #555;
+      font-family: 'SF Mono', monospace;
+      width: 72px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────────────────────── */
+    footer {
+      padding: 11px 24px;
+      border-top: 1px solid #141414;
+      display: flex;
+      justify-content: center;
+      gap: 28px;
+      font-size: 12px;
+      color: #333;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🎮 PTZ Volunteer Control</h1>
+  <a href="/">← AI Control Panel</a>
+</header>
+
+<div class="stop-bar">
+  <button id="stop-all">⏹&nbsp; STOP ALL CAMERAS</button>
+</div>
+
+<div class="cards" id="cards"></div>
+
+<footer>
+  <span>🕹 Left Stick → Pan / Tilt</span>
+  <span>🎯 RT → Zoom In &nbsp;|&nbsp; LT → Zoom Out</span>
+  <span>🔵 X → Focus Near &nbsp;|&nbsp; 🟡 Y → Focus Far</span>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG
+// Change controllerIndex order here if the wrong controller drives the wrong
+// camera after a reboot (USB enumeration order can vary).
+// ─────────────────────────────────────────────────────────────────────────────
+const CONTROLLER_MAP = [
+  { controllerIndex: 0, cameraId: 1, ip: '192.168.100.86', name: 'Camera 1' },
+  { controllerIndex: 1, cameraId: 2, ip: '192.168.100.87', name: 'Camera 2' },
+  { controllerIndex: 2, cameraId: 3, ip: '192.168.100.88', name: 'Camera 3' },
+];
+
+// Tuning — raise/lower to taste
+const DEADZONE         = 0.12;  // ignore stick movement below this threshold
+const POLL_MS          = 50;    // poll interval in milliseconds
+const MAX_PAN_SPEED    = 18;    // hardware max is 24; 18 feels more controllable
+const MAX_TILT_SPEED   = 14;    // hardware max is 20
+const MAX_ZOOM_SPEED   = 7;
+const SPEED_HYSTERESIS = 1;     // skip resending if speed changed by less than this
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-controller state — tracks what was last sent so we avoid re-sending
+// identical commands on every poll tick
+// ─────────────────────────────────────────────────────────────────────────────
+const ctrlState = CONTROLLER_MAP.map(() => ({
+  ptDir: null, panSpeed: 0, tiltSpeed: 0,
+  zoomDir: null, zoomSpeed: 0,
+  focusDir: null,
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build UI cards
+// ─────────────────────────────────────────────────────────────────────────────
+function buildCards() {
+  const wrap = document.getElementById('cards');
+  CONTROLLER_MAP.forEach((m, i) => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.id = `card-${i}`;
+    div.innerHTML = `
+      <div class="card-head">
+        <div class="ctrl-num">${i + 1}</div>
+        <div class="card-meta">
+          <div class="sublabel">Controller ${i + 1}</div>
+          <div class="cam-name">${m.name}</div>
+          <div class="cam-ip">${m.ip}</div>
+        </div>
+      </div>
+      <div class="conn-badge">
+        <div class="conn-dot" id="dot-${i}"></div>
+        <div class="conn-label" id="conn-${i}">Not Connected</div>
+      </div>
+      <div class="activity">
+        <div class="activity-title">Live Input</div>
+        <div class="axis-row">
+          <div class="axis-name">Pan</div>
+          <div class="track"><div class="fill fill-pt" id="fp-${i}"></div></div>
+          <div class="axis-val" id="vp-${i}">—</div>
+        </div>
+        <div class="axis-row">
+          <div class="axis-name">Tilt</div>
+          <div class="track"><div class="fill fill-pt" id="ft-${i}"></div></div>
+          <div class="axis-val" id="vt-${i}">—</div>
+        </div>
+        <div class="axis-row">
+          <div class="axis-name">Zoom</div>
+          <div class="track"><div class="fill fill-zoom" id="fz-${i}"></div></div>
+          <div class="axis-val" id="vz-${i}">—</div>
+        </div>
+        <div class="axis-row">
+          <div class="axis-name">Focus</div>
+          <div class="track"><div class="fill fill-focus" id="ff-${i}"></div></div>
+          <div class="axis-val" id="vf-${i}">—</div>
+        </div>
+      </div>`;
+    wrap.appendChild(div);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deadzone: maps raw value → 0 inside zone, rescaled outside
+// ─────────────────────────────────────────────────────────────────────────────
+function dz(v) {
+  if (Math.abs(v) < DEADZONE) return 0;
+  return (v - Math.sign(v) * DEADZONE) / (1 - DEADZONE);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Derive direction string from processed X/Y values
+// Produces: 'left' | 'right' | 'up' | 'down' | 'leftup' | 'rightup' | 'leftdown' | 'rightdown' | null
+// ─────────────────────────────────────────────────────────────────────────────
+function direction(x, y) {
+  if (x === 0 && y === 0) return null;
+  const xp = x === 0 ? '' : x < 0 ? 'left' : 'right';
+  const yp = y === 0 ? '' : y < 0 ? 'up'   : 'down';
+  return xp + yp || yp; // diagonal = xp+yp, pure axis = whichever is set
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fire-and-forget HTTP command — errors are silently swallowed; the next
+// poll tick will resend if state still differs
+// ─────────────────────────────────────────────────────────────────────────────
+function send(ip, tool, params) {
+  fetch('/api/gamepad/command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip, tool, params }),
+  }).catch(() => {});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Process a single gamepad — compare desired state vs last sent, send only diffs
+// ─────────────────────────────────────────────────────────────────────────────
+function processGamepad(idx, gp) {
+  const m = CONTROLLER_MAP[idx];
+  const s = ctrlState[idx];
+
+  // ── Pan / Tilt (left stick) ───────────────────────────────────────────────
+  const x = dz(gp.axes[0] ?? 0);
+  const y = dz(gp.axes[1] ?? 0);
+
+  const ptDir    = direction(x, y);
+  const panSpd   = ptDir ? Math.max(1, Math.round(Math.abs(x) * MAX_PAN_SPEED))  : 0;
+  const tiltSpd  = ptDir ? Math.max(1, Math.round(Math.abs(y) * MAX_TILT_SPEED)) : 0;
+
+  const ptDirChange   = ptDir !== s.ptDir;
+  const ptSpeedChange = ptDir && (
+    Math.abs(panSpd  - s.panSpeed)  > SPEED_HYSTERESIS ||
+    Math.abs(tiltSpd - s.tiltSpeed) > SPEED_HYSTERESIS
+  );
+
+  if (ptDirChange || ptSpeedChange) {
+    s.ptDir = ptDir; s.panSpeed = panSpd; s.tiltSpeed = tiltSpd;
+    if (ptDir) {
+      send(m.ip, 'pan_tilt', {
+        direction: ptDir,
+        pan_speed:  panSpd,
+        tilt_speed: Math.max(1, tiltSpd),
+      });
+    } else {
+      send(m.ip, 'pan_tilt_stop', {});
+    }
+  }
+
+  // Update pan/tilt bars (use raw normalized magnitude, not clamped speed)
+  const panLabel  = ptDir?.includes('left')  ? `← ${panSpd}` : ptDir?.includes('right') ? `→ ${panSpd}` : '—';
+  const tiltLabel = ptDir?.includes('up')    ? `↑ ${tiltSpd}` : ptDir?.includes('down')  ? `↓ ${tiltSpd}` : '—';
+  document.getElementById(`fp-${idx}`).style.width = `${Math.abs(x) * 100}%`;
+  document.getElementById(`ft-${idx}`).style.width = `${Math.abs(y) * 100}%`;
+  document.getElementById(`vp-${idx}`).textContent = panLabel;
+  document.getElementById(`vt-${idx}`).textContent = tiltLabel;
+
+  // ── Zoom (RT = zoom in, LT = zoom out) ───────────────────────────────────
+  const rtVal  = gp.buttons[7]?.value ?? 0;
+  const ltVal  = gp.buttons[6]?.value ?? 0;
+  const zRaw   = dz(rtVal - ltVal);
+  const zoomDir  = zRaw > 0 ? 'in' : zRaw < 0 ? 'out' : null;
+  const zoomSpd  = zoomDir ? Math.max(1, Math.round(Math.abs(zRaw) * MAX_ZOOM_SPEED)) : 0;
+
+  const zDirChange   = zoomDir !== s.zoomDir;
+  const zSpeedChange = zoomDir && Math.abs(zoomSpd - s.zoomSpeed) > SPEED_HYSTERESIS;
+
+  if (zDirChange || zSpeedChange) {
+    s.zoomDir = zoomDir; s.zoomSpeed = zoomSpd;
+    if (zoomDir) {
+      send(m.ip, 'zoom', { direction: zoomDir, speed: zoomSpd });
+    } else {
+      send(m.ip, 'zoom_stop', {});
+    }
+  }
+
+  const zoomLabel = zoomDir === 'in' ? `+ ${zoomSpd}` : zoomDir === 'out' ? `− ${zoomSpd}` : '—';
+  document.getElementById(`fz-${idx}`).style.width = `${Math.abs(zRaw) * 100}%`;
+  document.getElementById(`vz-${idx}`).textContent = zoomLabel;
+
+  // ── Focus (X button = near, Y button = far) ───────────────────────────────
+  const nearBtn  = gp.buttons[2]?.pressed ?? false;
+  const farBtn   = gp.buttons[3]?.pressed ?? false;
+  const focusDir = nearBtn ? 'near' : farBtn ? 'far' : null;
+
+  if (focusDir !== s.focusDir) {
+    s.focusDir = focusDir;
+    if (focusDir) {
+      send(m.ip, 'focus', { direction: focusDir, speed: 3 });
+    } else {
+      send(m.ip, 'focus_stop', {});
+    }
+  }
+
+  document.getElementById(`ff-${idx}`).style.width = focusDir ? '60%' : '0%';
+  document.getElementById(`vf-${idx}`).textContent  = focusDir === 'near' ? 'Near' : focusDir === 'far' ? 'Far' : '—';
+
+  // Active border when any axis is live
+  document.getElementById(`card-${idx}`).classList.toggle('is-active', !!(ptDir || zoomDir || focusDir));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main poll loop (requestAnimationFrame + 50ms gate)
+// Pauses automatically if the browser tab is hidden — which also prevents
+// runaway commands if a volunteer accidentally navigates away.
+// ─────────────────────────────────────────────────────────────────────────────
+let lastPoll = 0;
+
+function loop(ts) {
+  requestAnimationFrame(loop);
+  if (ts - lastPoll < POLL_MS) return;
+  lastPoll = ts;
+
+  const gamepads = navigator.getGamepads();
+  CONTROLLER_MAP.forEach((m, i) => {
+    const gp = gamepads[m.controllerIndex];
+    const connected = !!gp;
+
+    document.getElementById(`dot-${i}`).className   = 'conn-dot'   + (connected ? ' on' : '');
+    document.getElementById(`conn-${i}`).className  = 'conn-label' + (connected ? ' on' : '');
+    document.getElementById(`conn-${i}`).textContent = connected ? 'Connected' : 'Not Connected';
+    document.getElementById(`card-${i}`).classList.toggle('is-connected', connected);
+
+    if (gp) {
+      processGamepad(i, gp);
+    } else {
+      // Clear bars for disconnected controllers
+      ['fp','ft','fz','ff'].forEach(p => {
+        document.getElementById(`${p}-${i}`).style.width = '0%';
+      });
+      ['vp','vt','vz','vf'].forEach(p => {
+        document.getElementById(`${p}-${i}`).textContent = '—';
+      });
+      document.getElementById(`card-${i}`).classList.remove('is-active');
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STOP ALL — sends stop to every camera, resets local state so the next
+// poll reflects the actual (stopped) camera state accurately
+// ─────────────────────────────────────────────────────────────────────────────
+document.getElementById('stop-all').addEventListener('click', async () => {
+  const btn = document.getElementById('stop-all');
+  btn.classList.add('fired');
+  setTimeout(() => btn.classList.remove('fired'), 400);
+
+  // Reset state tracking — if sticks are still held, next tick re-evaluates
+  // from scratch and resends the appropriate move command
+  ctrlState.forEach(s => {
+    s.ptDir = null; s.panSpeed = 0; s.tiltSpeed = 0;
+    s.zoomDir = null; s.zoomSpeed = 0;
+    s.focusDir = null;
+  });
+
+  await fetch('/api/gamepad/stop-all', { method: 'POST' }).catch(() => {});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+buildCards();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

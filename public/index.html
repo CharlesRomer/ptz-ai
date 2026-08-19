@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PTZ AI Controller</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0c0e18;
+  --surface:   #141620;
+  --surface2:  #1c1f2e;
+  --surface3:  #232640;
+  --border:    #2a2e4a;
+  --border2:   #3a3f62;
+  --text:      #dde1f5;
+  --muted:     #6b7099;
+  --accent:    #6c72ff;
+  --accent-d:  #4a50d4;
+  --stop:      #ff3b3b;
+  --stop-h:    #ff1a1a;
+  --ok:        #3ddc84;
+  --err:       #ff6b6b;
+  --warn:      #ffa94d;
+  --watch:     #00d4aa;
+  --watch-d:   #009b7a;
+  --manual:    #ffa500;
+  --mono:      'SF Mono','Fira Code',monospace;
+  --cam-active:#6c72ff;
+}
+
+html, body { height: 100vh; overflow: hidden; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; display: flex; flex-direction: column; }
+
+/* ── HEADER ── */
+header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; z-index: 10;
+}
+header h1 { font-size: 14px; font-weight: 700; flex: 1; }
+.header-cam { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+#stopBtn {
+  background: var(--stop); color: #fff; border: none;
+  padding: 7px 18px; border-radius: 6px; font-size: 12px; font-weight: 800;
+  letter-spacing: .08em; cursor: pointer; transition: background .1s, transform .1s;
+  flex-shrink: 0;
+}
+#stopBtn:hover  { background: var(--stop-h); }
+#stopBtn:active { transform: scale(.95); }
+
+/* ── MAIN LAYOUT ── */
+main { display: flex; flex: 1; min-height: 0; }
+
+/* ── LEFT PANEL (manual controls) ── */
+.left-panel {
+  display: flex; flex-direction: column; flex: 1; min-width: 0;
+  overflow-y: auto; border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+
+/* ── CAMERA PREVIEWS ── */
+.previews {
+  display: flex; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0; background: var(--surface);
+}
+
+.cam-box {
+  flex: 1; border-radius: 8px; overflow: hidden; border: 2px solid var(--border);
+  cursor: pointer; transition: border-color .15s; position: relative; background: var(--surface2);
+  aspect-ratio: 16/9; min-width: 0;
+}
+.cam-box.active { border-color: var(--cam-active); }
+.cam-box:hover:not(.active) { border-color: var(--border2); }
+
+.cam-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cam-box .cam-label {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,.65); color: var(--text); font-size: 10px; font-weight: 600;
+  padding: 3px 6px; display: flex; justify-content: space-between; align-items: center;
+}
+.cam-box .cam-label .active-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--cam-active); display: none;
+}
+.cam-box.active .cam-label .active-dot { display: block; }
+.cam-offline { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 11px; }
+
+/* ── WATCH MODE BAR ── */
+.watch-bar {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0;
+}
+.watch-bar label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--watch); flex-shrink: 0; }
+#watchInstruction {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 12px; padding: 6px 10px; outline: none;
+}
+#watchInstruction:focus { border-color: var(--watch-d); }
+#watchInstruction::placeholder { color: var(--muted); }
+.watch-bar button { padding: 6px 12px; border-radius: 6px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+#watchStartBtn { background: var(--watch); color: #000; }
+#watchStartBtn:hover { opacity: .85; }
+#watchStartBtn:disabled { opacity: .4; cursor: not-allowed; }
+#watchStopBtn  { background: var(--surface3); color: var(--err); border: 1px solid var(--err); display: none; }
+#watchStopBtn:hover { background: rgba(255,107,107,.15); }
+.watch-timer { font-family: var(--mono); font-size: 10px; color: var(--watch); display: none; }
+
+/* ── MANUAL CONTROLS ── */
+.controls { display: flex; flex-direction: column; gap: 0; padding: 0; }
+
+.ctrl-section {
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+}
+.ctrl-section-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); margin-bottom: 8px;
+}
+
+/* PTZ + Zoom/Focus row */
+.ptz-row { display: flex; gap: 12px; align-items: flex-start; }
+
+/* D-pad */
+.dpad-wrap { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.dpad {
+  display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); gap: 3px;
+}
+.dpad button {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 14px; cursor: pointer; transition: background .1s;
+  display: flex; align-items: center; justify-content: center; user-select: none;
+}
+.dpad button:hover  { background: var(--surface3); border-color: var(--border2); }
+.dpad button:active { background: var(--accent-d); }
+.dpad .home-btn { font-size: 10px; font-weight: 700; color: var(--muted); }
+.dpad .home-btn:hover { color: var(--text); }
+
+.speed-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.speed-row input[type=range] { width: 90px; accent-color: var(--accent); }
+.speed-val { font-family: var(--mono); font-size: 10px; color: var(--text); min-width: 16px; }
+
+/* Zoom + Focus col */
+.zoom-focus { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+
+.btn-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.ctrl-btn {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); font-size: 11px; font-weight: 600; padding: 5px 10px; cursor: pointer;
+  transition: background .1s; user-select: none; white-space: nowrap;
+}
+.ctrl-btn:hover  { background: var(--surface3); border-color: var(--border2); }
+.ctrl-btn:active { background: var(--accent-d); }
+.ctrl-btn.toggle-on  { background: var(--accent-d); border-color: var(--accent); color: #fff; }
+.ctrl-btn.danger { color: var(--err); border-color: var(--err); }
+
+.small-label { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+
+/* Exposure / WB row */
+.image-controls { display: flex; gap: 12px; flex-wrap: wrap; }
+.ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-group label { font-size: 10px; color: var(--muted); }
+.ctrl-select {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); font-size: 11px; padding: 4px 6px; outline: none; cursor: pointer;
+}
+.ctrl-select:focus { border-color: var(--accent-d); }
+
+.slider-group { display: flex; align-items: center; gap: 5px; }
+.slider-group input[type=range] { accent-color: var(--accent); }
+
+/* Presets */
+.preset-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.preset-btn {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); font-size: 11px; font-weight: 700; padding: 5px 10px; cursor: pointer;
+  transition: background .1s; min-width: 32px; text-align: center;
+}
+.preset-btn:hover { background: var(--surface3); }
+.preset-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+.preset-save-row { display: flex; gap: 4px; align-items: center; }
+.preset-num {
+  width: 40px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); font-size: 11px; padding: 4px 6px; text-align: center; outline: none;
+}
+
+/* ── RIGHT PANEL (chat) ── */
+.right-panel {
+  width: 330px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--surface);
+}
+
+.panel-header {
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+
+/* Messages */
+#messages {
+  flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 0;
+}
+
+.msg { max-width: 95%; padding: 8px 11px; border-radius: 8px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.msg .mlabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+.msg.user      { background: #252840; align-self: flex-end; border-bottom-right-radius: 2px; }
+.msg.assistant { background: #1a1d2e; border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 2px; }
+.msg.system    { background: none; border: 1px dashed var(--border); align-self: center; color: var(--muted); font-size: 11px; max-width: 90%; text-align: center; padding: 5px 10px; }
+
+.typing { display: flex; gap: 4px; padding: 2px 0; }
+.typing span { width: 5px; height: 5px; background: var(--muted); border-radius: 50%; animation: bounce 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: .2s; }
+.typing span:nth-child(3) { animation-delay: .4s; }
+@keyframes bounce { 0%,80%,100% { transform:translateY(0);opacity:.4; } 40% { transform:translateY(-4px);opacity:1; } }
+
+/* Input */
+.input-bar {
+  display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--border);
+  background: var(--surface); flex-shrink: 0;
+}
+#chatInput {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 12px; padding: 7px 10px; outline: none;
+}
+#chatInput:focus { border-color: var(--accent-d); }
+#chatInput::placeholder { color: var(--muted); }
+#sendBtn {
+  background: var(--accent); color: #fff; border: none; padding: 7px 14px;
+  border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+#sendBtn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Command log */
+.log-wrap { display: flex; flex-direction: column; height: 220px; flex-shrink: 0; border-top: 1px solid var(--border); }
+.log-header { padding: 6px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.log-header span { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+#clearLog { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 10px; padding: 2px 7px; border-radius: 4px; cursor: pointer; }
+#clearLog:hover { color: var(--text); }
+
+#cmdLog { flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px; font-family: var(--mono); font-size: 10px; }
+
+.log-entry {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+  padding: 5px 8px; display: flex; flex-direction: column; gap: 3px;
+}
+.log-entry.ok   { border-left: 3px solid var(--ok); }
+.log-entry.fail { border-left: 3px solid var(--err); }
+.log-entry.watch-entry { border-left: 3px solid var(--watch); }
+.log-entry.manual-entry { border-left: 3px solid var(--manual); }
+
+.log-top { display: flex; justify-content: space-between; }
+.log-tool { font-weight: 700; color: var(--accent); }
+.log-tool.watch-tool { color: var(--watch); }
+.log-tool.manual-tool { color: var(--manual); }
+.log-ts { color: var(--muted); font-size: 9px; }
+.log-reasoning { color: var(--watch); font-style: italic; font-size: 10px; border-left: 2px solid var(--watch); padding-left: 5px; }
+.log-url { color: var(--muted); font-size: 9px; word-break: break-all; }
+.log-params { color: var(--muted); font-size: 9px; }
+.log-status { font-size: 9px; padding: 1px 4px; border-radius: 3px; align-self: flex-start; }
+.log-status.ok   { background: rgba(61,220,132,.12); color: var(--ok); }
+.log-status.fail { background: rgba(255,107,107,.12); color: var(--err); }
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Hidden ── */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <h1>🎥 PTZ AI Controller</h1>
+  <span class="header-cam" id="activeCamLabel">Camera 2 — 192.168.100.87</span>
+  <a href="/gamepad.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:8px;" onmouseover="this.style.color='#aaa'" onmouseout="this.style.color='var(--muted)'">🎮 Volunteer Mode</a>
+  <button id="stopBtn" onclick="emergencyStop()">⏹ STOP</button>
+</header>
+
+<main>
+<!-- ════════════════════════════════ LEFT PANEL ════════════════════════════════ -->
+<div class="left-panel">
+
+  <!-- CAMERA PREVIEWS -->
+  <div class="previews">
+    <div class="cam-box" id="camBox1" onclick="selectCamera(1)">
+      <div class="cam-offline" id="camOffline1">Not connected</div>
+      <img id="camImg1" style="display:none">
+      <div class="cam-label">Camera 1 <span class="active-dot"></span></div>
+    </div>
+    <div class="cam-box active" id="camBox2" onclick="selectCamera(2)">
+      <div class="cam-offline" id="camOffline2">Not connected</div>
+      <img id="camImg2" style="display:none">
+      <div class="cam-label">Camera 2 <span class="active-dot"></span></div>
+    </div>
+    <div class="cam-box" id="camBox3" onclick="selectCamera(3)">
+      <div class="cam-offline" id="camOffline3">Not connected</div>
+      <img id="camImg3" style="display:none">
+      <div class="cam-label">Camera 3 <span class="active-dot"></span></div>
+    </div>
+  </div>
+
+  <!-- WATCH MODE -->
+  <div class="watch-bar">
+    <label>👁 Watch</label>
+    <input id="watchInstruction" type="text" placeholder="e.g. keep me centered, follow the speaker…" />
+    <span class="watch-timer" id="watchTimer"></span>
+    <button id="watchStartBtn" onclick="startWatch()">▶ Start</button>
+    <button id="watchStopBtn" onclick="stopWatch()">■ Stop Watch</button>
+  </div>
+
+  <!-- MANUAL CONTROLS -->
+  <div class="controls">
+
+    <!-- PTZ + Zoom/Focus -->
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">Pan · Tilt · Zoom · Focus</div>
+      <div class="ptz-row">
+        <!-- D-pad -->
+        <div class="dpad-wrap">
+          <div class="dpad">
+            <button onmousedown="startMove('leftup')"  onmouseup="stopMove()" onmouseleave="stopMove()">↖</button>
+            <button onmousedown="startMove('up')"      onmouseup="stopMove()" onmouseleave="stopMove()">↑</button>
+            <button onmousedown="startMove('rightup')" onmouseup="stopMove()" onmouseleave="stopMove()">↗</button>
+            <button onmousedown="startMove('left')"    onmouseup="stopMove()" onmouseleave="stopMove()">←</button>
+            <button class="home-btn" onclick="manual('go_home',{})">⌂</button>
+            <button onmousedown="startMove('right')"     onmouseup="stopMove()" onmouseleave="stopMove()">→</button>
+            <button onmousedown="startMove('leftdown')"  onmouseup="stopMove()" onmouseleave="stopMove()">↙</button>
+            <button onmousedown="startMove('down')"      onmouseup="stopMove()" onmouseleave="stopMove()">↓</button>
+            <button onmousedown="startMove('rightdown')" onmouseup="stopMove()" onmouseleave="stopMove()">↘</button>
+          </div>
+          <div class="speed-row">
+            <span class="small-label">Speed</span>
+            <input type="range" id="panSpeed" min="1" max="24" value="10" oninput="updateSpeedLabel()">
+            <span class="speed-val" id="panSpeedVal">10</span>
+          </div>
+          <div class="speed-row">
+            <span class="small-label">Tilt</span>
+            <input type="range" id="tiltSpeed" min="1" max="20" value="8" oninput="updateSpeedLabel()">
+            <span class="speed-val" id="tiltSpeedVal">8</span>
+          </div>
+        </div>
+
+        <!-- Zoom + Focus -->
+        <div class="zoom-focus">
+          <div>
+            <div class="small-label" style="margin-bottom:4px">Zoom</div>
+            <div class="btn-row">
+              <button class="ctrl-btn" onmousedown="startZoom('in')"  onmouseup="stopZoom()" onmouseleave="stopZoom()">+ In</button>
+              <button class="ctrl-btn" onmousedown="startZoom('out')" onmouseup="stopZoom()" onmouseleave="stopZoom()">− Out</button>
+            </div>
+            <div class="speed-row" style="margin-top:4px">
+              <span class="small-label">Speed</span>
+              <input type="range" id="zoomSpeed" min="1" max="7" value="3" oninput="this.nextElementSibling.textContent=this.value">
+              <span class="speed-val">3</span>
+            </div>
+          </div>
+          <div>
+            <div class="small-label" style="margin-bottom:4px">Focus</div>
+            <div class="btn-row">
+              <button class="ctrl-btn toggle-on" id="focusAutoBtn" onclick="setFocusMode('auto')">Auto</button>
+              <button class="ctrl-btn" id="focusManBtn" onclick="setFocusMode('manual')">Manual</button>
+            </div>
+            <div class="btn-row" id="focusManualBtns" style="margin-top:4px;display:none">
+              <button class="ctrl-btn" onmousedown="startFocus('near')" onmouseup="stopFocus()" onmouseleave="stopFocus()">Near</button>
+              <button class="ctrl-btn" onmousedown="startFocus('far')"  onmouseup="stopFocus()" onmouseleave="stopFocus()">Far</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exposure -->
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">Exposure</div>
+      <div class="image-controls">
+        <div class="ctrl-group">
+          <label>Mode</label>
+          <select class="ctrl-select" id="aeMode" onchange="setAEMode(this.value)">
+            <option value="auto">Auto</option>
+            <option value="manual">Manual</option>
+            <option value="shutter">Shutter (SAE)</option>
+            <option value="iris">Iris (AAE)</option>
+            <option value="bright">Bright</option>
+          </select>
+        </div>
+        <div class="ctrl-group" id="irisGroup">
+          <label>Iris</label>
+          <select class="ctrl-select" id="irisVal" onchange="manual('set_iris',{value:this.value})">
+            <option>F1.8</option><option>F2.0</option><option>F2.4</option>
+            <option>F2.8</option><option>F3.4</option><option>F4.0</option>
+            <option>F4.8</option><option>F5.6</option><option>F6.8</option>
+            <option>F8.0</option><option>F9.6</option><option>F11.0</option><option>Close</option>
+          </select>
+        </div>
+        <div class="ctrl-group" id="shutterGroup">
+          <label>Shutter</label>
+          <select class="ctrl-select" id="shutterVal" onchange="manual('set_shutter',{value:this.value})">
+            <option>1/30</option><option>1/60</option><option>1/90</option><option>1/100</option>
+            <option>1/125</option><option>1/180</option><option>1/250</option><option>1/350</option>
+            <option>1/500</option><option>1/725</option><option>1/1000</option><option>1/1500</option>
+            <option>1/2000</option><option>1/3000</option><option>1/4000</option><option>1/6000</option><option>1/10000</option>
+          </select>
+        </div>
+        <div class="ctrl-group" id="gainGroup">
+          <label>Gain <span id="gainLabel">0</span> dB</label>
+          <div class="slider-group">
+            <input type="range" min="0" max="15" value="0" id="gainSlider"
+              oninput="document.getElementById('gainLabel').textContent=this.value"
+              onchange="manual('set_gain',{value:parseInt(this.value)})">
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <label>Sharpness <span id="sharpLabel">8</span></label>
+          <div class="slider-group">
+            <input type="range" min="0" max="15" value="8" id="sharpSlider"
+              oninput="document.getElementById('sharpLabel').textContent=this.value"
+              onchange="manual('set_sharpness',{value:parseInt(this.value)})">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- White Balance -->
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">White Balance</div>
+      <div class="image-controls">
+        <div class="ctrl-group">
+          <label>Mode</label>
+          <select class="ctrl-select" id="wbMode" onchange="setWBMode(this.value)">
+            <option value="auto">Auto</option>
+            <option value="indoor">Indoor</option>
+            <option value="outdoor">Outdoor</option>
+            <option value="onepush">One-Push</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+        <div class="ctrl-group" id="rgainGroup" style="display:none">
+          <label>R-Gain <span id="rgainLabel">128</span></label>
+          <div class="slider-group">
+            <input type="range" min="0" max="255" value="128" id="rgainSlider"
+              oninput="document.getElementById('rgainLabel').textContent=this.value"
+              onchange="manual('set_rgain',{value:parseInt(this.value)})">
+          </div>
+        </div>
+        <div class="ctrl-group" id="bgainGroup" style="display:none">
+          <label>B-Gain <span id="bgainLabel">128</span></label>
+          <div class="slider-group">
+            <input type="range" min="0" max="255" value="128" id="bgainSlider"
+              oninput="document.getElementById('bgainLabel').textContent=this.value"
+              onchange="manual('set_bgain',{value:parseInt(this.value)})">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Presets + AutoTrack -->
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">Presets · Auto-Track</div>
+      <div class="preset-row">
+        <span class="small-label">Recall</span>
+        <button class="preset-btn" onclick="manual('recall_preset',{preset_number:1})">1</button>
+        <button class="preset-btn" onclick="manual('recall_preset',{preset_number:2})">2</button>
+        <button class="preset-btn" onclick="manual('recall_preset',{preset_number:3})">3</button>
+        <button class="preset-btn" onclick="manual('recall_preset',{preset_number:4})">4</button>
+        <button class="preset-btn" onclick="manual('recall_preset',{preset_number:5})">5</button>
+        <button class="preset-btn" onclick="manual('recall_preset',{preset_number:6})">6</button>
+        <div class="preset-sep"></div>
+        <div class="preset-save-row">
+          <span class="small-label">Save to</span>
+          <input type="number" class="preset-num" id="savePresetNum" min="0" max="254" value="1">
+          <button class="ctrl-btn" onclick="manual('save_preset',{preset_number:parseInt(document.getElementById('savePresetNum').value)})">Save</button>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="ctrl-btn" id="autoTrackBtn" onclick="toggleAutoTrack()">Auto-Track: OFF</button>
+        <button class="ctrl-btn danger" onclick="manual('stop',{})">Stop Movement</button>
+      </div>
+    </div>
+
+  </div><!-- /controls -->
+</div><!-- /left-panel -->
+
+<!-- ════════════════════════════════ RIGHT PANEL (CHAT) ════════════════════════════════ -->
+<div class="right-panel">
+  <div class="panel-header"><span>AI Chat</span></div>
+
+  <div id="messages">
+    <div class="msg system">Type a command — e.g. "pan left slowly", "zoom in on the door", "switch to camera 1", "follow me"</div>
+  </div>
+
+  <div class="input-bar">
+    <input id="chatInput" placeholder="Tell the camera what to do…" autocomplete="off" />
+    <button id="sendBtn" onclick="sendMessage()">Send</button>
+  </div>
+
+  <div class="log-wrap">
+    <div class="log-header">
+      <span>Command Log</span>
+      <button id="clearLog" onclick="clearLog()">Clear</button>
+    </div>
+    <div id="cmdLog"><div style="color:var(--muted);padding:4px 2px">No commands yet.</div></div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ════════════════════════ STATE ════════════════════════
+let chatHistory  = [];
+let activeCamId  = 2;
+let autoTrackOn  = false;
+let focusMode    = 'auto';
+let watchRunning = false;
+let watchStart   = null;
+let watchTimerInterval = null;
+
+// ════════════════════════ CAMERA PREVIEWS (persistent MJPEG stream) ════════════
+// Each <img> points directly to the MJPEG stream endpoint — browser renders frames
+// natively as they arrive with no JavaScript polling overhead.
+// If the camera is offline the server returns 503 and we show the overlay + retry.
+
+const streamRetryTimers = {};
+
+function initPreviews() {
+  for (let id = 1; id <= 3; id++) {
+    connectPreview(id);
+  }
+}
+
+function connectPreview(id) {
+  const img     = document.getElementById(`camImg${id}`);
+  const offline = document.getElementById(`camOffline${id}`);
+
+  img.onload = () => {
+    img.style.display   = 'block';
+    offline.style.display = 'none';
+  };
+
+  img.onerror = () => {
+    img.style.display   = 'none';
+    offline.style.display = 'flex';
+    // Retry after 10s — camera may come online later
+    clearTimeout(streamRetryTimers[id]);
+    streamRetryTimers[id] = setTimeout(() => connectPreview(id), 10_000);
+  };
+
+  // Cache-bust so the browser re-issues the request on reconnect
+  img.src = `/api/cameras/${id}/stream?t=${Date.now()}`;
+}
+
+async function selectCamera(id) {
+  await fetch('/api/cameras/active', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id}) });
+  activeCamId = id;
+  document.querySelectorAll('.cam-box').forEach((b, i) => b.classList.toggle('active', i+1 === id));
+  const cam = { 1: '192.168.100.86', 2: '192.168.100.87', 3: '192.168.100.88' };
+  document.getElementById('activeCamLabel').textContent = `Camera ${id} — ${cam[id]}`;
+  addLog({ ts: new Date().toISOString(), tool: 'switch_camera', input: {camera_id: id}, result: {ok:true}, ms: 0, ok: true, source: 'manual' });
+}
+
+// ════════════════════════ WATCH MODE ════════════════════════
+let sseSource = null;
+
+function connectSSE() {
+  if (sseSource) sseSource.close();
+  sseSource = new EventSource('/api/watch/events');
+  sseSource.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.event === 'reasoning') {
+      addReasoningLog(d.ts, d.text);
+    } else if (d.event === 'command') {
+      addLog(d.entry);
+    } else if (d.event === 'stopped') {
+      setWatchUI(false);
+      addSystemMsg(`Watch Mode stopped: ${d.reason}`);
+    } else if (d.event === 'error') {
+      addSystemMsg(`Watch error: ${d.message}`);
+    }
+  };
+}
+
+async function startWatch() {
+  const instr = document.getElementById('watchInstruction').value.trim();
+  if (!instr) { document.getElementById('watchInstruction').focus(); return; }
+  const res = await fetch('/api/watch/start', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({instruction: instr}),
+  });
+  const data = await res.json();
+  if (data.error) { addSystemMsg(`Watch error: ${data.error}`); return; }
+  setWatchUI(true);
+  addSystemMsg(`Watch Mode started: "${instr}"`);
+}
+
+async function stopWatch() {
+  await fetch('/api/watch/stop', { method: 'POST' });
+  setWatchUI(false);
+}
+
+function setWatchUI(running) {
+  watchRunning = running;
+  document.getElementById('watchStartBtn').disabled = running;
+  document.getElementById('watchStartBtn').style.display = running ? 'none' : '';
+  document.getElementById('watchStopBtn').style.display  = running ? ''     : 'none';
+  const timer = document.getElementById('watchTimer');
+  if (running) {
+    watchStart = Date.now();
+    timer.style.display = 'inline';
+    watchTimerInterval = setInterval(() => {
+      const s = Math.floor((Date.now() - watchStart) / 1000);
+      const m = Math.floor(s / 60), sec = s % 60;
+      timer.textContent = `${m}:${String(sec).padStart(2,'0')}`;
+    }, 1000);
+  } else {
+    clearInterval(watchTimerInterval);
+    timer.style.display = 'none';
+  }
+}
+
+// ════════════════════════ MANUAL CONTROLS ════════════════════════
+let moveActive = false, zoomActive = false, focusActive = false;
+
+function getPanSpeed()  { return parseInt(document.getElementById('panSpeed').value); }
+function getTiltSpeed() { return parseInt(document.getElementById('tiltSpeed').value); }
+function getZoomSpeed() { return parseInt(document.getElementById('zoomSpeed').value); }
+
+function startMove(direction) {
+  if (moveActive) return;
+  moveActive = true;
+  manual('pan_tilt', { direction, pan_speed: getPanSpeed(), tilt_speed: getTiltSpeed(), duration_ms: 5000 });
+}
+
+function stopMove() {
+  if (!moveActive) return;
+  moveActive = false;
+  manual('stop', {});
+}
+
+function startZoom(direction) {
+  if (zoomActive) return;
+  zoomActive = true;
+  manual('zoom', { direction, speed: getZoomSpeed(), duration_ms: 5000 });
+}
+
+function stopZoom() {
+  if (!zoomActive) return;
+  zoomActive = false;
+  manual('zoom', { direction: 'stop', speed: 1, duration_ms: 0 });
+}
+
+function startFocus(direction) {
+  if (focusActive) return;
+  focusActive = true;
+  manual('focus', { direction, speed: 4, duration_ms: 5000 });
+}
+
+function stopFocus() {
+  if (!focusActive) return;
+  focusActive = false;
+  manual('focus', { direction: 'stop', speed: 1, duration_ms: 0 });
+}
+
+function setFocusMode(mode) {
+  focusMode = mode;
+  manual('set_focus_mode', { mode });
+  document.getElementById('focusAutoBtn').classList.toggle('toggle-on', mode === 'auto');
+  document.getElementById('focusManBtn').classList.toggle('toggle-on', mode === 'manual');
+  document.getElementById('focusManualBtns').style.display = mode === 'manual' ? 'flex' : 'none';
+}
+
+function setAEMode(mode) {
+  manual('set_exposure_mode', { mode });
+  document.getElementById('irisGroup').style.display   = ['manual','iris'].includes(mode)    ? '' : 'none';
+  document.getElementById('shutterGroup').style.display = ['manual','shutter'].includes(mode) ? '' : 'none';
+  document.getElementById('gainGroup').style.display    = mode === 'manual' ? '' : 'none';
+}
+// Init exposure visibility
+setAEMode('auto');
+
+function setWBMode(mode) {
+  manual('set_white_balance', { mode });
+  const isManual = mode === 'manual';
+  document.getElementById('rgainGroup').style.display = isManual ? '' : 'none';
+  document.getElementById('bgainGroup').style.display = isManual ? '' : 'none';
+}
+
+function toggleAutoTrack() {
+  autoTrackOn = !autoTrackOn;
+  manual('toggle_autotrack', { enabled: autoTrackOn });
+  document.getElementById('autoTrackBtn').textContent = `Auto-Track: ${autoTrackOn ? 'ON' : 'OFF'}`;
+  document.getElementById('autoTrackBtn').classList.toggle('toggle-on', autoTrackOn);
+}
+
+function updateSpeedLabel() {
+  document.getElementById('panSpeedVal').textContent  = document.getElementById('panSpeed').value;
+  document.getElementById('tiltSpeedVal').textContent = document.getElementById('tiltSpeed').value;
+}
+
+// Fire a manual command via API
+async function manual(tool, params) {
+  try {
+    const res  = await fetch('/api/manual', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ tool, params }),
+    });
+    const data = await res.json();
+    addLog({
+      ts: new Date().toISOString(), tool, input: params,
+      result: data.result, ms: data.ms, ok: data.ok, source: 'manual',
+      error: data.error,
+    });
+  } catch (err) {
+    addLog({ ts: new Date().toISOString(), tool, input: params, error: err.message, ms: 0, ok: false, source: 'manual' });
+  }
+}
+
+// ════════════════════════ EMERGENCY STOP ════════════════════════
+async function emergencyStop() {
+  moveActive = zoomActive = focusActive = false;
+  const btn = document.getElementById('stopBtn');
+  btn.textContent = '⏹ STOPPING…';
+  btn.disabled = true;
+  await fetch('/api/stop', { method: 'POST' });
+  addLog({ ts: new Date().toISOString(), tool: 'EMERGENCY STOP', input: {}, result: { url: `ptzctrl.cgi?ptzcmd&ptzstop` }, ms: 0, ok: true, source: 'manual' });
+  btn.textContent = '⏹ STOP';
+  btn.disabled = false;
+}
+
+// ════════════════════════ CHAT ════════════════════════
+const messagesEl = document.getElementById('messages');
+
+function addMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if (role !== 'system') {
+    const label = document.createElement('div');
+    label.className = 'mlabel';
+    label.textContent = role === 'user' ? 'You' : 'Camera AI';
+    div.appendChild(label);
+  }
+  const body = document.createElement('div');
+  body.textContent = text;
+  div.appendChild(body);
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+
+function addSystemMsg(text) {
+  const div = document.createElement('div');
+  div.className = 'msg system';
+  div.textContent = text;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.id = 'typing';
+  const l = document.createElement('div'); l.className = 'mlabel'; l.textContent = 'Camera AI';
+  const d = document.createElement('div'); d.className = 'typing';
+  d.innerHTML = '<span></span><span></span><span></span>';
+  div.appendChild(l); div.appendChild(d);
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function removeTyping() { document.getElementById('typing')?.remove(); }
+
+async function sendMessage() {
+  const text = document.getElementById('chatInput').value.trim();
+  if (!text || document.getElementById('sendBtn').disabled) return;
+  document.getElementById('chatInput').value = '';
+  document.getElementById('sendBtn').disabled = true;
+
+  addMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+  showTyping();
+
+  try {
+    const res  = await fetch('/api/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ messages: chatHistory }),
+    });
+    removeTyping();
+    const data = await res.json();
+    if (!res.ok) {
+      addSystemMsg(`Error: ${data.error}`);
+    } else {
+      const reply = data.text || '(no reply)';
+      addMessage('assistant', reply);
+      chatHistory.push({ role: 'assistant', content: reply });
+      if (data.commandLog?.length) data.commandLog.forEach(addLog);
+      // Sync active camera if AI switched it
+      const switchCmd = data.commandLog?.find(e => e.tool === 'switch_camera' && e.ok);
+      if (switchCmd?.input?.camera_id) selectCamera(switchCmd.input.camera_id);
+    }
+  } catch (err) {
+    removeTyping();
+    addSystemMsg(`Network error: ${err.message}`);
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('chatInput').focus();
+}
+
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// ════════════════════════ COMMAND LOG ════════════════════════
+const logEl = document.getElementById('cmdLog');
+
+function clearLog() { logEl.innerHTML = '<div style="color:var(--muted);padding:4px 2px">No commands yet.</div>'; }
+
+function addLog(entry) {
+  const ph = logEl.querySelector('div[style]');
+  if (ph) ph.remove();
+
+  const div = document.createElement('div');
+  const isWatch  = entry.source === 'watch';
+  const isManual = entry.source === 'manual';
+  div.className = `log-entry ${entry.ok ? 'ok' : 'fail'} ${isWatch ? 'watch-entry' : ''} ${isManual ? 'manual-entry' : ''}`;
+
+  // Top row: tool name + timestamp
+  const top = document.createElement('div');
+  top.className = 'log-top';
+  const name = document.createElement('span');
+  name.className = `log-tool ${isWatch ? 'watch-tool' : ''} ${isManual ? 'manual-tool' : ''}`;
+  name.textContent = (isWatch ? '👁 ' : isManual ? '🎛 ' : '🤖 ') + entry.tool;
+  const ts = document.createElement('span');
+  ts.className = 'log-ts';
+  ts.textContent = new Date(entry.ts).toLocaleTimeString();
+  top.appendChild(name); top.appendChild(ts);
+  div.appendChild(top);
+
+  // URL
+  const url = entry.result?.url || entry.result?.cmd;
+  if (url) {
+    const u = document.createElement('div');
+    u.className = 'log-url';
+    u.textContent = url.replace('http://192.168.100.', 'http://…').replace('visca://192.168.100.', 'visca://…');
+    div.appendChild(u);
+  }
+
+  // Params
+  const params = Object.entries(entry.input || {}).map(([k,v]) => `${k}=${JSON.stringify(v)}`).join(' ');
+  if (params) {
+    const p = document.createElement('div');
+    p.className = 'log-params';
+    p.textContent = params;
+    div.appendChild(p);
+  }
+
+  // Status
+  const st = document.createElement('span');
+  st.className = `log-status ${entry.ok ? 'ok' : 'fail'}`;
+  st.textContent = entry.ok
+    ? `${entry.result?.status ? 'HTTP ' + entry.result.status : 'OK'}  ${entry.ms}ms`
+    : `ERR: ${(entry.error || 'unknown').slice(0,60)}`;
+  div.appendChild(st);
+
+  logEl.prepend(div);
+}
+
+function addReasoningLog(ts, text) {
+  const ph = logEl.querySelector('div[style]');
+  if (ph) ph.remove();
+
+  const div = document.createElement('div');
+  div.className = 'log-entry watch-entry ok';
+
+  const top = document.createElement('div'); top.className = 'log-top';
+  const name = document.createElement('span'); name.className = 'log-tool watch-tool'; name.textContent = '💭 reasoning';
+  const t = document.createElement('span'); t.className = 'log-ts'; t.textContent = new Date(ts).toLocaleTimeString();
+  top.appendChild(name); top.appendChild(t);
+  div.appendChild(top);
+
+  const r = document.createElement('div'); r.className = 'log-reasoning'; r.textContent = text;
+  div.appendChild(r);
+
+  logEl.prepend(div);
+}
+
+// ════════════════════════ INIT ════════════════════════
+connectSSE();
+initPreviews();
+</script>
+</body>
+</html>
