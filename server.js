@@ -243,6 +243,11 @@ app.post('/api/gamepad/command', async (req, res) => {
       case 'focus_stop':
         result = USE_VISCA ? await visca.focus_stop(ip) : await cgi.focus_stop(ip);
         break;
+      case 'focus_mode': {
+        const { mode } = params; // 'auto' or 'manual'
+        result = USE_VISCA ? await visca.focus_mode(ip, mode) : await cgi.focus_mode(ip, mode);
+        break;
+      }
       default:
         return res.status(400).json({ error: `Unknown gamepad tool: ${tool}` });
     }

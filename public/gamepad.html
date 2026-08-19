@@ -216,7 +216,8 @@
 <footer>
   <span>🕹 Left Stick → Pan / Tilt</span>
   <span>🎯 RT → Zoom In &nbsp;|&nbsp; LT → Zoom Out</span>
-  <span>🔵 X → Focus Near &nbsp;|&nbsp; 🟡 Y → Focus Far</span>
+  <span>R1 → Focus Near &nbsp;|&nbsp; L1 → Focus Far</span>
+  <span>🟡 Y → Toggle Auto / Manual Focus</span>
 </footer>
 
 <script>
@@ -226,9 +227,9 @@
 // camera after a reboot (USB enumeration order can vary).
 // ─────────────────────────────────────────────────────────────────────────────
 const CONTROLLER_MAP = [
-  { controllerIndex: 0, cameraId: 1, ip: '192.168.100.86', name: 'Camera 1' },
+  { controllerIndex: 0, cameraId: 3, ip: '192.168.100.88', name: 'Camera 3' },
   { controllerIndex: 1, cameraId: 2, ip: '192.168.100.87', name: 'Camera 2' },
-  { controllerIndex: 2, cameraId: 3, ip: '192.168.100.88', name: 'Camera 3' },
+  { controllerIndex: 2, cameraId: 1, ip: '192.168.100.86', name: 'Camera 1' },
 ];
 
 // Tuning — raise/lower to taste
@@ -247,6 +248,8 @@ const ctrlState = CONTROLLER_MAP.map(() => ({
   ptDir: null, panSpeed: 0, tiltSpeed: 0,
   zoomDir: null, zoomSpeed: 0,
   focusDir: null,
+  focusMode: 'auto', // tracks current auto/manual state for Y toggle
+  yWasPressed: false, // edge detection — only fire on press, not hold
 }));
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -292,6 +295,11 @@ function buildCards() {
           <div class="axis-name">Focus</div>
           <div class="track"><div class="fill fill-focus" id="ff-${i}"></div></div>
           <div class="axis-val" id="vf-${i}">—</div>
+        </div>
+        <div class="axis-row">
+          <div class="axis-name">AF</div>
+          <div class="track"></div>
+          <div class="axis-val" id="vaf-${i}" style="color:#22c55e">Auto</div>
         </div>
       </div>`;
     wrap.appendChild(div);
@@ -394,10 +402,10 @@ function processGamepad(idx, gp) {
   document.getElementById(`fz-${idx}`).style.width = `${Math.abs(zRaw) * 100}%`;
   document.getElementById(`vz-${idx}`).textContent = zoomLabel;
 
-  // ── Focus (X button = near, Y button = far) ───────────────────────────────
-  const nearBtn  = gp.buttons[2]?.pressed ?? false;
-  const farBtn   = gp.buttons[3]?.pressed ?? false;
-  const focusDir = nearBtn ? 'near' : farBtn ? 'far' : null;
+  // ── Focus (R1 = near, L1 = far, hold to continue) ────────────────────────
+  const r1       = gp.buttons[5]?.pressed ?? false; // RB / R1
+  const l1       = gp.buttons[4]?.pressed ?? false; // LB / L1
+  const focusDir = r1 ? 'near' : l1 ? 'far' : null;
 
   if (focusDir !== s.focusDir) {
     s.focusDir = focusDir;
@@ -410,6 +418,17 @@ function processGamepad(idx, gp) {
 
   document.getElementById(`ff-${idx}`).style.width = focusDir ? '60%' : '0%';
   document.getElementById(`vf-${idx}`).textContent  = focusDir === 'near' ? 'Near' : focusDir === 'far' ? 'Far' : '—';
+
+  // ── Autofocus toggle (Y button — fires once per press, not on hold) ───────
+  const yPressed = gp.buttons[3]?.pressed ?? false;
+  if (yPressed && !s.yWasPressed) {
+    s.focusMode = s.focusMode === 'auto' ? 'manual' : 'auto';
+    send(m.ip, 'focus_mode', { mode: s.focusMode });
+  }
+  s.yWasPressed = yPressed;
+
+  document.getElementById(`vaf-${idx}`).textContent = s.focusMode === 'auto' ? 'Auto' : 'Manual';
+  document.getElementById(`vaf-${idx}`).style.color  = s.focusMode === 'auto' ? '#22c55e' : '#f59e0b';
 
   // Active border when any axis is live
   document.getElementById(`card-${idx}`).classList.toggle('is-active', !!(ptDir || zoomDir || focusDir));
@@ -447,6 +466,8 @@ function loop(ts) {
       ['vp','vt','vz','vf'].forEach(p => {
         document.getElementById(`${p}-${i}`).textContent = '—';
       });
+      document.getElementById(`vaf-${i}`).textContent = '—';
+      document.getElementById(`vaf-${i}`).style.color = '#555';
       document.getElementById(`card-${i}`).classList.remove('is-active');
     }
   });
