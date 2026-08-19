@@ -259,6 +259,31 @@
     .fill-pt   { background: #3b82f6; }
     .fill-zoom { background: #8b5cf6; }
     .fill-focus{ background: #f59e0b; }
+
+    /* Sensitivity + autotrack status row */
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #0a0a0a;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #555;
+      gap: 8px;
+    }
+    .status-row .sens { display: flex; align-items: center; gap: 5px; }
+    .status-row .sens span { color: #3b82f6; letter-spacing: 1px; font-size: 10px; }
+    .status-row .at-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #1a1a1a;
+      color: #555;
+      transition: background 0.2s, color 0.2s;
+    }
+    .status-row .at-badge.on { background: #14532d; color: #22c55e; }
     .axis-val {
       font-size: 11px;
       color: #555;
@@ -353,7 +378,8 @@
   <span>🕹 Left Stick → Pan / Tilt</span>
   <span>🎯 RT → Zoom In &nbsp;|&nbsp; LT → Zoom Out</span>
   <span>R1 → Focus Near &nbsp;|&nbsp; L1 → Focus Far</span>
-  <span>🟡 Y → Toggle Auto / Manual Focus</span>
+  <span>🟡 Y → Auto/Manual Focus &nbsp;|&nbsp; 🔴 B → AutoTrack</span>
+  <span>D-Pad ↑↓ → Zoom Speed &nbsp;|&nbsp; D-Pad ←→ → Pan Speed</span>
 </footer>
 
 <script>
@@ -447,13 +473,28 @@ const SPEED_HYSTERESIS = 1;     // skip resending if speed changed by less than 
 // Per-controller state — tracks what was last sent so we avoid re-sending
 // identical commands on every poll tick
 // ─────────────────────────────────────────────────────────────────────────────
+const SENS_LEVELS = 5; // 1–5, default 3
+
 const ctrlState = CONTROLLER_MAP.map(() => ({
   ptDir: null, panSpeed: 0, tiltSpeed: 0,
   zoomDir: null, zoomSpeed: 0,
   focusDir: null,
-  focusMode: 'auto', // tracks current auto/manual state for Y toggle
-  yWasPressed: false, // edge detection — only fire on press, not hold
+  focusMode: 'auto',
+  autoTrackOn: false,
+  panSens: 3,  // 1–5: scales max pan/tilt speed
+  zoomSens: 3, // 1–5: scales max zoom speed
+  // Edge detection flags
+  yWasPressed:    false,
+  bWasPressed:    false,
+  dUpWasPressed:  false,
+  dDownWasPressed:false,
+  dLeftWasPressed:false,
+  dRightWasPressed:false,
 }));
+
+function dots(level) {
+  return '●'.repeat(level) + '○'.repeat(SENS_LEVELS - level);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Build UI cards
@@ -476,6 +517,11 @@ function buildCards() {
       <div class="conn-badge">
         <div class="conn-dot" id="dot-${i}"></div>
         <div class="conn-label" id="conn-${i}">Not Connected</div>
+      </div>
+      <div class="status-row">
+        <div class="sens">Pan <span id="sens-pan-${i}">●●●○○</span></div>
+        <div class="sens">Zoom <span id="sens-zoom-${i}">●●●○○</span></div>
+        <div class="at-badge" id="at-badge-${i}">AutoTrack OFF</div>
       </div>
       <div class="activity">
         <div class="activity-title">Live Input</div>
@@ -547,13 +593,34 @@ function processGamepad(idx, gp) {
   const m = CONTROLLER_MAP[idx];
   const s = ctrlState[idx];
 
+  // ── D-pad: adjust pan/zoom sensitivity (edge-triggered) ──────────────────
+  const dUp    = gp.buttons[12]?.pressed ?? false;
+  const dDown  = gp.buttons[13]?.pressed ?? false;
+  const dLeft  = gp.buttons[14]?.pressed ?? false;
+  const dRight = gp.buttons[15]?.pressed ?? false;
+
+  if (dUp    && !s.dUpWasPressed)    s.zoomSens = Math.min(SENS_LEVELS, s.zoomSens + 1);
+  if (dDown  && !s.dDownWasPressed)  s.zoomSens = Math.max(1, s.zoomSens - 1);
+  if (dRight && !s.dRightWasPressed) s.panSens  = Math.min(SENS_LEVELS, s.panSens  + 1);
+  if (dLeft  && !s.dLeftWasPressed)  s.panSens  = Math.max(1, s.panSens  - 1);
+  s.dUpWasPressed = dUp; s.dDownWasPressed = dDown;
+  s.dLeftWasPressed = dLeft; s.dRightWasPressed = dRight;
+
+  document.getElementById(`sens-pan-${idx}`).textContent  = dots(s.panSens);
+  document.getElementById(`sens-zoom-${idx}`).textContent = dots(s.zoomSens);
+
+  // Effective speed caps scaled by sensitivity level
+  const effectivePanMax  = Math.round(MAX_PAN_SPEED  * s.panSens  / SENS_LEVELS);
+  const effectiveTiltMax = Math.round(MAX_TILT_SPEED * s.panSens  / SENS_LEVELS); // tilt tracks pan sens
+  const effectiveZoomMax = Math.round(MAX_ZOOM_SPEED * s.zoomSens / SENS_LEVELS);
+
   // ── Pan / Tilt (left stick) ───────────────────────────────────────────────
   const x = dz(gp.axes[0] ?? 0);
   const y = dz(gp.axes[1] ?? 0);
 
   const ptDir    = direction(x, y);
-  const panSpd   = ptDir ? Math.max(1, Math.round(Math.abs(x) * MAX_PAN_SPEED))  : 0;
-  const tiltSpd  = ptDir ? Math.max(1, Math.round(Math.abs(y) * MAX_TILT_SPEED)) : 0;
+  const panSpd   = ptDir ? Math.max(1, Math.round(Math.abs(x) * effectivePanMax))  : 0;
+  const tiltSpd  = ptDir ? Math.max(1, Math.round(Math.abs(y) * effectiveTiltMax)) : 0;
 
   const ptDirChange   = ptDir !== s.ptDir;
   const ptSpeedChange = ptDir && (
@@ -587,7 +654,7 @@ function processGamepad(idx, gp) {
   const ltVal  = gp.buttons[6]?.value ?? 0;
   const zRaw   = dz(rtVal - ltVal);
   const zoomDir  = zRaw > 0 ? 'in' : zRaw < 0 ? 'out' : null;
-  const zoomSpd  = zoomDir ? Math.max(1, Math.round(Math.abs(zRaw) * MAX_ZOOM_SPEED)) : 0;
+  const zoomSpd  = zoomDir ? Math.max(1, Math.round(Math.abs(zRaw) * effectiveZoomMax)) : 0;
 
   const zDirChange   = zoomDir !== s.zoomDir;
   const zSpeedChange = zoomDir && Math.abs(zoomSpd - s.zoomSpeed) > SPEED_HYSTERESIS;
@@ -622,7 +689,7 @@ function processGamepad(idx, gp) {
   document.getElementById(`ff-${idx}`).style.width = focusDir ? '60%' : '0%';
   document.getElementById(`vf-${idx}`).textContent  = focusDir === 'near' ? 'Near' : focusDir === 'far' ? 'Far' : '—';
 
-  // ── Autofocus toggle (Y button — fires once per press, not on hold) ───────
+  // ── Autofocus toggle (Y button) ───────────────────────────────────────────
   const yPressed = gp.buttons[3]?.pressed ?? false;
   if (yPressed && !s.yWasPressed) {
     s.focusMode = s.focusMode === 'auto' ? 'manual' : 'auto';
@@ -632,6 +699,18 @@ function processGamepad(idx, gp) {
 
   document.getElementById(`vaf-${idx}`).textContent = s.focusMode === 'auto' ? 'Auto' : 'Manual';
   document.getElementById(`vaf-${idx}`).style.color  = s.focusMode === 'auto' ? '#22c55e' : '#f59e0b';
+
+  // ── Auto-track toggle (B button) ─────────────────────────────────────────
+  const bPressed = gp.buttons[1]?.pressed ?? false;
+  if (bPressed && !s.bWasPressed) {
+    s.autoTrackOn = !s.autoTrackOn;
+    send(m.ip, 'autotrack', { enabled: s.autoTrackOn });
+  }
+  s.bWasPressed = bPressed;
+
+  const atBadge = document.getElementById(`at-badge-${idx}`);
+  atBadge.textContent = s.autoTrackOn ? 'AutoTrack ON' : 'AutoTrack OFF';
+  atBadge.classList.toggle('on', s.autoTrackOn);
 
   // Active border when any axis is live
   document.getElementById(`card-${idx}`).classList.toggle('is-active', !!(ptDir || zoomDir || focusDir));
@@ -671,6 +750,8 @@ function loop(ts) {
       });
       document.getElementById(`vaf-${i}`).textContent = '—';
       document.getElementById(`vaf-${i}`).style.color = '#555';
+      document.getElementById(`at-badge-${i}`).textContent = 'AutoTrack OFF';
+      document.getElementById(`at-badge-${i}`).classList.remove('on');
       document.getElementById(`card-${i}`).classList.remove('is-active');
     }
   });

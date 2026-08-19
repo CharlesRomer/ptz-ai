@@ -248,6 +248,11 @@ app.post('/api/gamepad/command', async (req, res) => {
         result = USE_VISCA ? await visca.focus_mode(ip, mode) : await cgi.focus_mode(ip, mode);
         break;
       }
+      case 'autotrack': {
+        const { enabled } = params;
+        result = await cgi.autotrack(ip, enabled); // CGI only — no VISCA equivalent
+        break;
+      }
       default:
         return res.status(400).json({ error: `Unknown gamepad tool: ${tool}` });
     }
