@@ -377,7 +377,7 @@
 <footer>
   <span>🕹 Left Stick → Pan / Tilt</span>
   <span>🎯 RT → Zoom In &nbsp;|&nbsp; LT → Zoom Out</span>
-  <span>R1 → Focus Near &nbsp;|&nbsp; L1 → Focus Far</span>
+  <span>Right Stick ↑↓ → Focus Far/Near (proportional) &nbsp;|&nbsp; R1/L1 → Focus (fixed)</span>
   <span>🟡 Y → Auto/Manual Focus &nbsp;|&nbsp; 🔴 B → AutoTrack</span>
   <span>D-Pad ↑↓ → Zoom Speed &nbsp;|&nbsp; D-Pad ←→ → Pan Speed</span>
 </footer>
@@ -483,6 +483,7 @@ const ctrlState = CONTROLLER_MAP.map(() => ({
   autoTrackOn: false,
   panSens: 3,  // 1–5: scales max pan/tilt speed
   zoomSens: 3, // 1–5: scales max zoom speed
+  focusSpd: 0, // last sent focus speed (for change detection)
   // Edge detection flags
   yWasPressed:    false,
   bWasPressed:    false,
@@ -672,22 +673,40 @@ function processGamepad(idx, gp) {
   document.getElementById(`fz-${idx}`).style.width = `${Math.abs(zRaw) * 100}%`;
   document.getElementById(`vz-${idx}`).textContent = zoomLabel;
 
-  // ── Focus (R1 = near, L1 = far, hold to continue) ────────────────────────
-  const r1       = gp.buttons[5]?.pressed ?? false; // RB / R1
-  const l1       = gp.buttons[4]?.pressed ?? false; // LB / L1
-  const focusDir = r1 ? 'near' : l1 ? 'far' : null;
+  // ── Focus (right stick Y = proportional full range; R1/L1 = fixed speed backup) ──
+  // Right stick: push forward (up, negative Y) = far, pull back (positive Y) = near
+  const stickY = dz(gp.axes[3] ?? 0);
+  const r1     = gp.buttons[5]?.pressed ?? false;
+  const l1     = gp.buttons[4]?.pressed ?? false;
 
-  if (focusDir !== s.focusDir) {
-    s.focusDir = focusDir;
+  let focusDir, focusSpd;
+  if (stickY !== 0) {
+    focusDir = stickY > 0 ? 'near' : 'far';
+    focusSpd = Math.max(1, Math.round(Math.abs(stickY) * 7)); // full 1–7 range
+  } else if (r1 || l1) {
+    focusDir = r1 ? 'near' : 'far';
+    focusSpd = 3;
+  } else {
+    focusDir = null;
+    focusSpd = 0;
+  }
+
+  const focusChanged = focusDir !== s.focusDir ||
+    (focusDir && focusSpd !== s.focusSpd);
+
+  if (focusChanged) {
+    s.focusDir = focusDir; s.focusSpd = focusSpd;
     if (focusDir) {
-      send(m.ip, 'focus', { direction: focusDir, speed: 3 });
+      send(m.ip, 'focus', { direction: focusDir, speed: focusSpd });
     } else {
       send(m.ip, 'focus_stop', {});
     }
   }
 
-  document.getElementById(`ff-${idx}`).style.width = focusDir ? '60%' : '0%';
-  document.getElementById(`vf-${idx}`).textContent  = focusDir === 'near' ? 'Near' : focusDir === 'far' ? 'Far' : '—';
+  const focusMag = stickY !== 0 ? Math.abs(stickY) : (focusDir ? 0.4 : 0);
+  document.getElementById(`ff-${idx}`).style.width = `${focusMag * 100}%`;
+  document.getElementById(`vf-${idx}`).textContent  =
+    focusDir === 'near' ? `Near ${focusSpd}` : focusDir === 'far' ? `Far ${focusSpd}` : '—';
 
   // ── Autofocus toggle (Y button) ───────────────────────────────────────────
   const yPressed = gp.buttons[3]?.pressed ?? false;
