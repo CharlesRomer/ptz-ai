@@ -33,6 +33,87 @@
       transition: color 0.15s;
     }
     header a:hover { color: #aaa; }
+    #settings-btn {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      color: #888;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      margin-left: 12px;
+    }
+    #settings-btn:hover { background: #252525; color: #ccc; }
+
+    /* ── Settings modal ──────────────────────────────────────────────────────── */
+    #settings-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000000cc;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #settings-overlay.open { display: flex; }
+    #settings-panel {
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 28px;
+      width: 520px;
+      max-width: 95vw;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    #settings-panel h2 { font-size: 17px; font-weight: 700; color: #fff; }
+    #settings-panel h3 { font-size: 12px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+    .settings-section { display: flex; flex-direction: column; gap: 8px; }
+    .settings-row {
+      display: grid;
+      grid-template-columns: 100px 1fr 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+    .settings-row.assign {
+      grid-template-columns: 100px 1fr;
+    }
+    .settings-row label { font-size: 12px; color: #666; }
+    .settings-row input, .settings-row select {
+      background: #0a0a0a;
+      border: 1px solid #2a2a2a;
+      color: #e5e5e5;
+      font-size: 13px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      outline: none;
+      font-family: inherit;
+    }
+    .settings-row input:focus, .settings-row select:focus { border-color: #3b82f6; }
+    .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-save {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 9px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-save:hover { background: #3b82f6; }
+    .btn-cancel {
+      background: #1a1a1a;
+      color: #888;
+      border: 1px solid #2a2a2a;
+      border-radius: 7px;
+      padding: 9px 20px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn-cancel:hover { color: #ccc; }
 
     /* ── STOP ALL bar ────────────────────────────────────────────────────────── */
     .stop-bar { padding: 16px 24px; background: #0f0f0f; border-bottom: 1px solid #1e1e1e; }
@@ -204,8 +285,63 @@
 
 <header>
   <h1>🎮 PTZ Volunteer Control</h1>
-  <a href="/">← AI Control Panel</a>
+  <div style="display:flex;align-items:center;gap:4px;">
+    <a href="/">← AI Control Panel</a>
+    <button id="settings-btn" onclick="openSettings()">⚙ Settings</button>
+  </div>
 </header>
+
+<!-- Settings modal -->
+<div id="settings-overlay">
+  <div id="settings-panel">
+    <h2>⚙ Controller Settings</h2>
+
+    <div class="settings-section">
+      <h3>Camera IPs &amp; Names</h3>
+      <div class="settings-row">
+        <label></label>
+        <label style="font-size:11px;color:#444">Name</label>
+        <label style="font-size:11px;color:#444">IP Address</label>
+      </div>
+      <div class="settings-row" id="cam-row-0">
+        <label>Camera 1</label>
+        <input type="text" id="cam-name-0" placeholder="Camera 1">
+        <input type="text" id="cam-ip-0" placeholder="192.168.100.x">
+      </div>
+      <div class="settings-row" id="cam-row-1">
+        <label>Camera 2</label>
+        <input type="text" id="cam-name-1" placeholder="Camera 2">
+        <input type="text" id="cam-ip-1" placeholder="192.168.100.x">
+      </div>
+      <div class="settings-row" id="cam-row-2">
+        <label>Camera 3</label>
+        <input type="text" id="cam-name-2" placeholder="Camera 3">
+        <input type="text" id="cam-ip-2" placeholder="192.168.100.x">
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Controller → Camera Assignments</h3>
+      <div class="settings-row assign">
+        <label>Controller 1</label>
+        <select id="assign-0"></select>
+      </div>
+      <div class="settings-row assign">
+        <label>Controller 2</label>
+        <select id="assign-1"></select>
+      </div>
+      <div class="settings-row assign">
+        <label>Controller 3</label>
+        <select id="assign-2"></select>
+      </div>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
+      <button class="btn-save" onclick="saveSettings()">Save &amp; Apply</button>
+    </div>
+  </div>
+</div>
 
 <div class="stop-bar">
   <button id="stop-all">⏹&nbsp; STOP ALL CAMERAS</button>
@@ -222,15 +358,82 @@
 
 <script>
 // ─────────────────────────────────────────────────────────────────────────────
-// CONFIG
-// Change controllerIndex order here if the wrong controller drives the wrong
-// camera after a reboot (USB enumeration order can vary).
+// CONFIG — loaded from localStorage, editable via ⚙ Settings button
 // ─────────────────────────────────────────────────────────────────────────────
-const CONTROLLER_MAP = [
-  { controllerIndex: 0, cameraId: 3, ip: '192.168.100.88', name: 'Camera 3' },
-  { controllerIndex: 1, cameraId: 2, ip: '192.168.100.87', name: 'Camera 2' },
-  { controllerIndex: 2, cameraId: 1, ip: '192.168.100.86', name: 'Camera 1' },
-];
+const DEFAULTS = {
+  cameras: [
+    { id: 1, name: 'Camera 1', ip: '192.168.100.86' },
+    { id: 2, name: 'Camera 2', ip: '192.168.100.87' },
+    { id: 3, name: 'Camera 3', ip: '192.168.100.88' },
+  ],
+  assignments: [
+    { controllerIndex: 0, cameraId: 2 },
+    { controllerIndex: 1, cameraId: 1 },
+    { controllerIndex: 2, cameraId: 3 },
+  ],
+};
+
+function loadConfig() {
+  try {
+    const s = localStorage.getItem('ptz-gamepad-config');
+    return s ? JSON.parse(s) : DEFAULTS;
+  } catch { return DEFAULTS; }
+}
+
+function saveConfig(cfg) {
+  localStorage.setItem('ptz-gamepad-config', JSON.stringify(cfg));
+}
+
+function buildControllerMap(cfg) {
+  return cfg.assignments.map(a => {
+    const cam = cfg.cameras.find(c => c.id === a.cameraId) || cfg.cameras[0];
+    return { controllerIndex: a.controllerIndex, cameraId: cam.id, ip: cam.ip, name: cam.name };
+  });
+}
+
+let config = loadConfig();
+let CONTROLLER_MAP = buildControllerMap(config);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Settings panel
+// ─────────────────────────────────────────────────────────────────────────────
+function openSettings() {
+  // Populate camera fields
+  config.cameras.forEach((cam, i) => {
+    document.getElementById(`cam-name-${i}`).value = cam.name;
+    document.getElementById(`cam-ip-${i}`).value   = cam.ip;
+  });
+  // Populate assignment dropdowns
+  config.assignments.forEach((a, i) => {
+    const sel = document.getElementById(`assign-${i}`);
+    sel.innerHTML = config.cameras.map(c =>
+      `<option value="${c.id}" ${c.id === a.cameraId ? 'selected' : ''}>${c.name} (${c.ip})</option>`
+    ).join('');
+  });
+  document.getElementById('settings-overlay').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('open');
+}
+
+function saveSettings() {
+  // Read camera fields
+  config.cameras.forEach((cam, i) => {
+    cam.name = document.getElementById(`cam-name-${i}`).value.trim() || cam.name;
+    cam.ip   = document.getElementById(`cam-ip-${i}`).value.trim()   || cam.ip;
+  });
+  // Read assignments
+  config.assignments.forEach((a, i) => {
+    a.cameraId = parseInt(document.getElementById(`assign-${i}`).value);
+  });
+  saveConfig(config);
+  CONTROLLER_MAP = buildControllerMap(config);
+  closeSettings();
+  // Rebuild cards so names/IPs update immediately
+  document.getElementById('cards').innerHTML = '';
+  buildCards();
+}
 
 // Tuning — raise/lower to taste
 const DEADZONE         = 0.12;  // ignore stick movement below this threshold
@@ -496,6 +699,10 @@ document.getElementById('stop-all').addEventListener('click', async () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────────────
+document.getElementById('settings-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+
 buildCards();
 requestAnimationFrame(loop);
 </script>
