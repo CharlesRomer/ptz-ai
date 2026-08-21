@@ -306,10 +306,10 @@ app.get('/api/status', async (req, res) => {
   const camStatus = await Promise.all(cameras.map(async (cam) => {
     const t0 = Date.now();
     try {
-      const r = await fetch(`http://${cam.ip}/cgi-bin/param.cgi?get_device_conf`, {
-        signal: AbortSignal.timeout(2000),
+      await fetch(`http://${cam.ip}/cgi-bin/param.cgi?get_device_conf`, {
+        signal: AbortSignal.timeout(4000),
       });
-      return { id: cam.id, ip: cam.ip, online: r.ok, latency: Date.now() - t0 };
+      return { id: cam.id, ip: cam.ip, online: true, latency: Date.now() - t0 };
     } catch {
       return { id: cam.id, ip: cam.ip, online: false, latency: null };
     }
@@ -332,7 +332,7 @@ app.get('/api/status', async (req, res) => {
 process.on('SIGTERM', () => { stopAllStreams(); process.exit(0); });
 process.on('SIGINT',  () => { stopAllStreams(); process.exit(0); });
 
-initATEM();
+initATEM().catch(err => console.error('[ATEM] Init error:', err.message));
 initOBS().catch(err => console.error('[OBS]  Init error:', err.message));
 
 app.listen(PORT, () => {
