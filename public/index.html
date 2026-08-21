@@ -3,321 +3,825 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PTZ AI Controller</title>
+<title>PTZ Director</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0c0e18;
-  --surface:   #141620;
-  --surface2:  #1c1f2e;
-  --surface3:  #232640;
-  --border:    #2a2e4a;
-  --border2:   #3a3f62;
-  --text:      #dde1f5;
-  --muted:     #6b7099;
-  --accent:    #6c72ff;
-  --accent-d:  #4a50d4;
-  --stop:      #ff3b3b;
-  --stop-h:    #ff1a1a;
-  --ok:        #3ddc84;
-  --err:       #ff6b6b;
-  --warn:      #ffa94d;
-  --watch:     #00d4aa;
-  --watch-d:   #009b7a;
-  --manual:    #ffa500;
-  --mono:      'SF Mono','Fira Code',monospace;
-  --cam-active:#6c72ff;
+  --bg:         #08090b;
+  --surface:    #0d0f11;
+  --surface2:   #13161a;
+  --surface3:   #1a1e23;
+  --border:     #1e2227;
+  --border2:    #2a2f36;
+  --text:       #dce2e8;
+  --muted:      #485058;
+  --muted2:     #6a7580;
+  --accent:     #3b7df8;
+  --accent-d:   #2560d0;
+  --live:       #dc2626;
+  --live-dim:   rgba(220,38,38,.12);
+  --pvw:        #16a34a;
+  --pvw-dim:    rgba(22,163,74,.12);
+  --ok:         #22c55e;
+  --warn:       #f59e0b;
+  --err:        #ef4444;
+  --watch:      #00d4aa;
+  --watch-d:    #009b7a;
+  --manual:     #f59e0b;
+  --mono:       'SF Mono','Consolas','Liberation Mono',monospace;
+  --drawer-w:   380px;
+  --header-h:   50px;
 }
 
 html, body { height: 100vh; overflow: hidden; }
-body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; display: flex; flex-direction: column; }
-
-/* ── HEADER ── */
-header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border);
-  flex-shrink: 0; z-index: 10;
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
 }
-header h1 { font-size: 14px; font-weight: 700; flex: 1; }
-.header-cam { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+/* ─── HEADER ──────────────────────────────────────────────────────────────── */
+header {
+  height: var(--header-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 10px;
+  flex-shrink: 0;
+  z-index: 200;
+  position: relative;
+}
+
+.hdr-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.hdr-wordmark .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 8px var(--live);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; box-shadow: 0 0 8px var(--live); }
+  50%      { opacity: .5; box-shadow: 0 0 3px var(--live); }
+}
+.hdr-title {
+  font-size: 14px; font-weight: 700; letter-spacing: .04em; color: var(--text);
+}
+.hdr-sub {
+  font-size: 10px; color: var(--muted2); font-family: var(--mono); letter-spacing: .06em;
+}
+
+.hdr-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--muted2);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 4px 10px; border-radius: 20px;
+}
+.hdr-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.hdr-pill.ok .dot { background: var(--ok); }
+.hdr-pill.live .dot { background: var(--live); animation: pulse-dot 1.2s ease-in-out infinite; }
+
+.hdr-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--muted2);
+  font-size: 12px;
+  padding: 6px 13px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.hdr-btn:hover { color: var(--text); border-color: var(--border2); }
+.hdr-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(59,125,248,.08); }
+
+.hdr-divider { width: 1px; height: 20px; background: var(--border2); flex-shrink: 0; }
 
 #stopBtn {
-  background: var(--stop); color: #fff; border: none;
-  padding: 7px 18px; border-radius: 6px; font-size: 12px; font-weight: 800;
-  letter-spacing: .08em; cursor: pointer; transition: background .1s, transform .1s;
+  background: var(--live); color: #fff; border: none;
+  padding: 7px 16px; border-radius: 7px;
+  font-size: 12px; font-weight: 800; letter-spacing: .06em;
+  cursor: pointer; transition: background .1s, transform .1s;
   flex-shrink: 0;
 }
-#stopBtn:hover  { background: var(--stop-h); }
+#stopBtn:hover  { background: #ef4444; }
 #stopBtn:active { transform: scale(.95); }
 
-/* ── MAIN LAYOUT ── */
-main { display: flex; flex: 1; min-height: 0; }
-
-/* ── LEFT PANEL (manual controls) ── */
-.left-panel {
-  display: flex; flex-direction: column; flex: 1; min-width: 0;
-  overflow-y: auto; border-right: 1px solid var(--border);
-  background: var(--bg);
+/* ─── WORKSPACE ────────────────────────────────────────────────────────────── */
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
 }
 
-/* ── CAMERA PREVIEWS ── */
-.previews {
-  display: flex; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border);
-  flex-shrink: 0; background: var(--surface);
+/* ─── CAMERA AREA ──────────────────────────────────────────────────────────── */
+.cam-area {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.cam-box {
-  flex: 1; border-radius: 8px; overflow: hidden; border: 2px solid var(--border);
-  cursor: pointer; transition: border-color .15s; position: relative; background: var(--surface2);
-  aspect-ratio: 16/9; min-width: 0;
+.cam-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  min-height: 0;
 }
-.cam-box.active { border-color: var(--cam-active); }
-.cam-box:hover:not(.active) { border-color: var(--border2); }
 
-.cam-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cam-box .cam-label {
+/* ─── CAMERA CARD ──────────────────────────────────────────────────────────── */
+.cam-card {
+  position: relative;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s;
+  min-height: 0;
+}
+.cam-card:hover:not(.is-live):not(.is-pvw):not(.is-selected) {
+  border-color: var(--border2);
+}
+.cam-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cam-card.is-live  { border-color: var(--live); box-shadow: 0 0 22px var(--live-dim); }
+.cam-card.is-pvw   { border-color: var(--pvw);  box-shadow: 0 0 16px var(--pvw-dim); }
+.cam-card.is-live.is-pvw { border-color: var(--live); box-shadow: 0 0 22px var(--live-dim); }
+
+.cam-card img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}
+
+.cam-offline {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px; color: var(--muted);
+}
+.cam-offline .off-icon { font-size: 28px; opacity: .3; }
+.cam-offline .off-name { font-size: 13px; font-weight: 600; opacity: .6; }
+.cam-offline .off-ip   { font-size: 10px; font-family: var(--mono); opacity: .4; }
+
+/* Tally badge — top left */
+.tally-badge {
+  position: absolute; top: 10px; left: 10px;
+  font-size: 9px; font-weight: 900; letter-spacing: .14em;
+  padding: 3px 7px; border-radius: 4px;
+  display: none;
+  text-transform: uppercase;
+}
+.tally-badge.live { display: block; background: var(--live); color: #fff; }
+.tally-badge.pvw  { display: block; background: var(--pvw);  color: #fff; }
+
+/* Status pill — top right */
+.cam-status-pill {
+  position: absolute; top: 10px; right: 10px;
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(6px);
+  padding: 3px 8px; border-radius: 20px;
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+}
+.status-dot.online  { background: var(--ok); }
+.status-dot.offline { background: var(--err); }
+.status-lat { font-size: 10px; color: rgba(255,255,255,.65); font-family: var(--mono); }
+
+/* Bottom info overlay */
+.cam-info {
   position: absolute; bottom: 0; left: 0; right: 0;
-  background: rgba(0,0,0,.65); color: var(--text); font-size: 10px; font-weight: 600;
-  padding: 3px 6px; display: flex; justify-content: space-between; align-items: center;
+  padding: 28px 12px 10px;
+  background: linear-gradient(transparent, rgba(0,0,0,.82));
+  display: flex; align-items: flex-end; justify-content: space-between;
 }
-.cam-box .cam-label .active-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--cam-active); display: none;
+.cam-name { font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+.cam-ip   { font-size: 9px; font-family: var(--mono); color: rgba(255,255,255,.45); }
+.cam-select-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); display: none;
+  box-shadow: 0 0 8px var(--accent);
 }
-.cam-box.active .cam-label .active-dot { display: block; }
-.cam-offline { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 11px; }
+.cam-card.is-selected .cam-select-dot { display: block; }
 
-/* ── WATCH MODE BAR ── */
-.watch-bar {
-  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-  border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0;
-}
-.watch-bar label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--watch); flex-shrink: 0; }
-#watchInstruction {
-  flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text); font-size: 12px; padding: 6px 10px; outline: none;
-}
-#watchInstruction:focus { border-color: var(--watch-d); }
-#watchInstruction::placeholder { color: var(--muted); }
-.watch-bar button { padding: 6px 12px; border-radius: 6px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
-#watchStartBtn { background: var(--watch); color: #000; }
-#watchStartBtn:hover { opacity: .85; }
-#watchStartBtn:disabled { opacity: .4; cursor: not-allowed; }
-#watchStopBtn  { background: var(--surface3); color: var(--err); border: 1px solid var(--err); display: none; }
-#watchStopBtn:hover { background: rgba(255,107,107,.15); }
-.watch-timer { font-family: var(--mono); font-size: 10px; color: var(--watch); display: none; }
-
-/* ── MANUAL CONTROLS ── */
-.controls { display: flex; flex-direction: column; gap: 0; padding: 0; }
-
-.ctrl-section {
-  padding: 10px 12px; border-bottom: 1px solid var(--border);
-}
-.ctrl-section-title {
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
-  color: var(--muted); margin-bottom: 8px;
+/* ─── STATUS SIDEBAR ───────────────────────────────────────────────────────── */
+.sidebar {
+  width: 264px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-/* PTZ + Zoom/Focus row */
-.ptz-row { display: flex; gap: 12px; align-items: flex-start; }
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.sb-section {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 14px 12px;
+}
+.sb-section:last-child { border-bottom: none; }
+
+.sb-title {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .14em; color: var(--muted); margin-bottom: 12px;
+}
+
+/* ATEM bus row */
+.atem-bus {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;
+}
+.atem-slot {
+  border-radius: 8px; padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.atem-slot.pgm { background: var(--live-dim); border: 1px solid rgba(220,38,38,.35); }
+.atem-slot.pvw { background: var(--pvw-dim);  border: 1px solid rgba(22,163,74,.35); }
+.atem-slot-label { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; }
+.atem-slot.pgm .atem-slot-label { color: var(--live); }
+.atem-slot.pvw .atem-slot-label { color: var(--pvw); }
+.atem-slot-val {
+  font-size: 14px; font-weight: 800; font-family: var(--mono);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.atem-slot.pgm .atem-slot-val { color: #ff6b6b; }
+.atem-slot.pvw .atem-slot-val { color: #4ade80; }
+
+/* Sidebar status rows */
+.sb-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0; border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.sb-row:last-child { border-bottom: none; }
+.sb-row-label { color: var(--muted2); }
+.sb-row-val   { font-family: var(--mono); font-size: 10px; color: var(--text); }
+.sb-row-val.live   { color: var(--live); font-weight: 700; }
+.sb-row-val.ok     { color: var(--ok); font-weight: 700; }
+.sb-row-val.warn   { color: var(--warn); }
+.sb-row-val.muted  { color: var(--muted); }
+
+/* Camera network rows in sidebar */
+.cam-net-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.cam-net-row:last-child { border-bottom: none; }
+.cam-net-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.cam-net-dot.online  { background: var(--ok); }
+.cam-net-dot.offline { background: var(--err); }
+.cam-net-name { flex: 1; font-weight: 600; }
+.cam-net-lat  { font-family: var(--mono); font-size: 10px; color: var(--muted2); }
+.cam-net-lat.fast { color: var(--ok); }
+.cam-net-lat.slow { color: var(--warn); }
+
+/* OBS streaming indicator */
+.obs-streaming-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 800; letter-spacing: .12em;
+  padding: 2px 8px; border-radius: 20px; text-transform: uppercase;
+}
+.obs-streaming-badge.on  { background: var(--live-dim); color: var(--live); border: 1px solid rgba(220,38,38,.3); }
+.obs-streaming-badge.off { background: var(--surface2); color: var(--muted2); border: 1px solid var(--border); }
+.obs-streaming-badge .blink { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.obs-streaming-badge.on .blink { animation: pulse-dot 1s ease-in-out infinite; }
+
+.conn-status {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+  padding: 5px 0;
+}
+.conn-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.conn-status.ok .dot { background: var(--ok); }
+.conn-status.err .dot { background: var(--err); }
+.conn-status .conn-label { color: var(--muted2); }
+.conn-status.ok .conn-label { color: var(--text); }
+
+/* ─── DRAWERS ──────────────────────────────────────────────────────────────── */
+.drawer {
+  position: fixed;
+  top: var(--header-h); bottom: 0;
+  width: var(--drawer-w);
+  background: var(--surface);
+  z-index: 150;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  transition: transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s;
+}
+.drawer-left {
+  left: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0 12px 12px 0;
+  transform: translateX(calc(-1 * var(--drawer-w)));
+}
+.drawer-right {
+  right: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 12px 0 0 12px;
+  transform: translateX(var(--drawer-w));
+}
+.drawer-left.open {
+  transform: translateX(0);
+  box-shadow: 8px 0 40px rgba(0,0,0,.5);
+}
+.drawer-right.open {
+  transform: translateX(0);
+  box-shadow: -8px 0 40px rgba(0,0,0,.5);
+}
+
+.drawer-overlay {
+  position: fixed; inset: 0; top: var(--header-h);
+  background: rgba(0,0,0,.4);
+  backdrop-filter: blur(2px);
+  z-index: 140;
+  display: none;
+}
+.drawer-overlay.visible { display: block; }
+
+.drawer-hdr {
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.drawer-hdr h2 { font-size: 14px; font-weight: 700; }
+.drawer-close {
+  background: none; border: none; color: var(--muted2); font-size: 20px;
+  cursor: pointer; padding: 2px 6px; border-radius: 5px; transition: all .15s;
+  line-height: 1;
+}
+.drawer-close:hover { color: var(--text); background: var(--surface2); }
+
+.drawer-body {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+}
+.drawer-body::-webkit-scrollbar { width: 3px; }
+.drawer-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ─── CONTROLS DRAWER INTERNALS ────────────────────────────────────────────── */
+.ctrl-block {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.ctrl-block:last-child { border-bottom: none; }
+.ctrl-block-title {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .14em; color: var(--muted); margin-bottom: 10px;
+}
+
+/* Camera selector */
+.cam-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.cam-sel-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted2); border-radius: 8px; padding: 8px 4px;
+  cursor: pointer; transition: all .15s; text-align: center; font-size: 12px; font-weight: 600;
+}
+.cam-sel-btn:hover { border-color: var(--border2); color: var(--text); }
+.cam-sel-btn.active { background: rgba(59,125,248,.12); border-color: var(--accent); color: var(--accent); }
 
 /* D-pad */
-.dpad-wrap { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.ptz-layout { display: flex; gap: 14px; align-items: flex-start; }
+.dpad-wrap { display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .dpad {
-  display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); gap: 3px;
+  display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 4px;
 }
 .dpad button {
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text); font-size: 14px; cursor: pointer; transition: background .1s;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  color: var(--text); font-size: 15px; cursor: pointer; transition: background .1s;
   display: flex; align-items: center; justify-content: center; user-select: none;
 }
 .dpad button:hover  { background: var(--surface3); border-color: var(--border2); }
-.dpad button:active { background: var(--accent-d); }
-.dpad .home-btn { font-size: 10px; font-weight: 700; color: var(--muted); }
+.dpad button:active { background: var(--accent-d); border-color: var(--accent); }
+.dpad .home-btn { font-size: 11px; font-weight: 700; color: var(--muted2); }
 .dpad .home-btn:hover { color: var(--text); }
 
-.speed-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
-.speed-row input[type=range] { width: 90px; accent-color: var(--accent); }
-.speed-val { font-family: var(--mono); font-size: 10px; color: var(--text); min-width: 16px; }
+.speed-group { display: flex; flex-direction: column; gap: 5px; }
+.speed-row {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; color: var(--muted2);
+}
+.speed-row input[type=range] { flex: 1; accent-color: var(--accent); }
+.speed-val { font-family: var(--mono); font-size: 10px; color: var(--text); min-width: 18px; text-align: right; }
 
-/* Zoom + Focus col */
-.zoom-focus { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.zoom-focus-col { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.ctrl-sublabel { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 4px; }
 
-.btn-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+/* Buttons */
+.btn-row { display: flex; gap: 5px; flex-wrap: wrap; }
 .ctrl-btn {
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
-  color: var(--text); font-size: 11px; font-weight: 600; padding: 5px 10px; cursor: pointer;
-  transition: background .1s; user-select: none; white-space: nowrap;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 11px; font-weight: 600; padding: 6px 11px;
+  cursor: pointer; transition: background .1s; user-select: none; white-space: nowrap;
 }
 .ctrl-btn:hover  { background: var(--surface3); border-color: var(--border2); }
 .ctrl-btn:active { background: var(--accent-d); }
-.ctrl-btn.toggle-on  { background: var(--accent-d); border-color: var(--accent); color: #fff; }
-.ctrl-btn.danger { color: var(--err); border-color: var(--err); }
+.ctrl-btn.toggle-on  { background: rgba(59,125,248,.15); border-color: var(--accent); color: var(--accent); }
+.ctrl-btn.danger { color: var(--err); border-color: rgba(239,68,68,.4); }
+.ctrl-btn.danger:hover { background: rgba(239,68,68,.1); }
 
-.small-label { font-size: 10px; color: var(--muted); flex-shrink: 0; }
-
-/* Exposure / WB row */
-.image-controls { display: flex; gap: 12px; flex-wrap: wrap; }
-.ctrl-group { display: flex; flex-direction: column; gap: 4px; }
-.ctrl-group label { font-size: 10px; color: var(--muted); }
+/* Exposure / WB */
+.image-controls { display: flex; flex-direction: column; gap: 8px; }
+.ctrl-row { display: flex; align-items: center; gap: 10px; }
+.ctrl-row label { font-size: 10px; color: var(--muted2); min-width: 60px; }
 .ctrl-select {
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
-  color: var(--text); font-size: 11px; padding: 4px 6px; outline: none; cursor: pointer;
+  flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 11px; padding: 5px 8px; outline: none; cursor: pointer;
 }
 .ctrl-select:focus { border-color: var(--accent-d); }
 
-.slider-group { display: flex; align-items: center; gap: 5px; }
-.slider-group input[type=range] { accent-color: var(--accent); }
+.slider-row { display: flex; align-items: center; gap: 8px; }
+.slider-row label { font-size: 10px; color: var(--muted2); min-width: 60px; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
+.slider-val { font-family: var(--mono); font-size: 10px; color: var(--text); min-width: 28px; text-align: right; }
 
 /* Presets */
-.preset-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.preset-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
 .preset-btn {
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
-  color: var(--text); font-size: 11px; font-weight: 700; padding: 5px 10px; cursor: pointer;
-  transition: background .1s; min-width: 32px; text-align: center;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 12px; font-weight: 700; padding: 7px 4px;
+  cursor: pointer; transition: background .1s; text-align: center;
 }
 .preset-btn:hover { background: var(--surface3); }
-.preset-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
-.preset-save-row { display: flex; gap: 4px; align-items: center; }
-.preset-num {
-  width: 40px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
-  color: var(--text); font-size: 11px; padding: 4px 6px; text-align: center; outline: none;
+
+.preset-save-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.preset-num-input {
+  width: 50px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 11px; padding: 5px 8px; text-align: center; outline: none;
 }
 
-/* ── RIGHT PANEL (chat) ── */
-.right-panel {
-  width: 330px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--surface);
+/* Watch mode */
+.watch-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.watch-row label { font-size: 11px; font-weight: 700; color: var(--watch); flex-shrink: 0; }
+#watchInstruction {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 11px; padding: 6px 10px; outline: none;
 }
-
-.panel-header {
-  padding: 8px 12px; border-bottom: 1px solid var(--border);
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
-  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+#watchInstruction:focus { border-color: var(--watch-d); }
+#watchInstruction::placeholder { color: var(--muted); }
+.watch-btns { display: flex; gap: 6px; align-items: center; }
+#watchStartBtn {
+  background: var(--watch); color: #000; border: none;
+  padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
 }
+#watchStartBtn:hover  { opacity: .85; }
+#watchStartBtn:disabled { opacity: .4; cursor: not-allowed; }
+#watchStopBtn {
+  background: var(--surface2); border: 1px solid var(--err); color: var(--err);
+  padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+  display: none;
+}
+#watchStopBtn:hover { background: rgba(239,68,68,.1); }
+.watch-timer { font-family: var(--mono); font-size: 11px; color: var(--watch); display: none; }
 
-/* Messages */
+/* ─── CHAT DRAWER INTERNALS ────────────────────────────────────────────────── */
+.chat-tabs {
+  display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.chat-tab {
+  flex: 1; padding: 9px; text-align: center;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted2); cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all .15s;
+}
+.chat-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.chat-pane { display: flex; flex-direction: column; height: 100%; }
+
 #messages {
-  flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 0;
+  flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  min-height: 0;
 }
+#messages::-webkit-scrollbar { width: 3px; }
+#messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-.msg { max-width: 95%; padding: 8px 11px; border-radius: 8px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-.msg .mlabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
-.msg.user      { background: #252840; align-self: flex-end; border-bottom-right-radius: 2px; }
-.msg.assistant { background: #1a1d2e; border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 2px; }
-.msg.system    { background: none; border: 1px dashed var(--border); align-self: center; color: var(--muted); font-size: 11px; max-width: 90%; text-align: center; padding: 5px 10px; }
+.msg { max-width: 96%; padding: 9px 12px; border-radius: 10px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.msg .mlabel { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; }
+.msg.user      { background: rgba(59,125,248,.15); border: 1px solid rgba(59,125,248,.3); align-self: flex-end; border-bottom-right-radius: 3px; }
+.msg.assistant { background: var(--surface2); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 3px; }
+.msg.system    { background: none; border: 1px dashed var(--border); align-self: center; color: var(--muted2); font-size: 11px; max-width: 90%; text-align: center; padding: 6px 12px; }
 
-.typing { display: flex; gap: 4px; padding: 2px 0; }
+.typing { display: flex; gap: 4px; padding: 3px 0; }
 .typing span { width: 5px; height: 5px; background: var(--muted); border-radius: 50%; animation: bounce 1.2s infinite; }
 .typing span:nth-child(2) { animation-delay: .2s; }
 .typing span:nth-child(3) { animation-delay: .4s; }
-@keyframes bounce { 0%,80%,100% { transform:translateY(0);opacity:.4; } 40% { transform:translateY(-4px);opacity:1; } }
+@keyframes bounce { 0%,80%,100% { transform:translateY(0);opacity:.4; } 40% { transform:translateY(-5px);opacity:1; } }
 
-/* Input */
-.input-bar {
-  display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--border);
-  background: var(--surface); flex-shrink: 0;
+.chat-input-bar {
+  display: flex; gap: 7px; padding: 10px 12px;
+  border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0;
 }
 #chatInput {
-  flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text); font-size: 12px; padding: 7px 10px; outline: none;
+  flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 12px; padding: 8px 11px; outline: none;
+  font-family: inherit;
 }
 #chatInput:focus { border-color: var(--accent-d); }
 #chatInput::placeholder { color: var(--muted); }
 #sendBtn {
-  background: var(--accent); color: #fff; border: none; padding: 7px 14px;
-  border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+  background: var(--accent); color: #fff; border: none;
+  padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background .15s;
 }
+#sendBtn:hover { background: var(--accent-d); }
 #sendBtn:disabled { opacity: .4; cursor: not-allowed; }
 
-/* Command log */
-.log-wrap { display: flex; flex-direction: column; height: 220px; flex-shrink: 0; border-top: 1px solid var(--border); }
-.log-header { padding: 6px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-.log-header span { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-#clearLog { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 10px; padding: 2px 7px; border-radius: 4px; cursor: pointer; }
-#clearLog:hover { color: var(--text); }
+/* Command log pane */
+.log-pane { display: flex; flex-direction: column; height: 100%; }
+.log-pane-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.log-pane-header span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted2); }
+#clearLogBtn {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  font-size: 10px; padding: 3px 8px; border-radius: 5px; cursor: pointer;
+}
+#clearLogBtn:hover { color: var(--text); }
 
-#cmdLog { flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px; font-family: var(--mono); font-size: 10px; }
+#cmdLog {
+  flex: 1; overflow-y: auto; padding: 8px;
+  display: flex; flex-direction: column; gap: 5px;
+  font-family: var(--mono); font-size: 10px;
+}
+#cmdLog::-webkit-scrollbar { width: 3px; }
+#cmdLog::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
 .log-entry {
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
-  padding: 5px 8px; display: flex; flex-direction: column; gap: 3px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 6px 9px; display: flex; flex-direction: column; gap: 3px;
 }
 .log-entry.ok   { border-left: 3px solid var(--ok); }
 .log-entry.fail { border-left: 3px solid var(--err); }
-.log-entry.watch-entry { border-left: 3px solid var(--watch); }
+.log-entry.watch-entry  { border-left: 3px solid var(--watch); }
 .log-entry.manual-entry { border-left: 3px solid var(--manual); }
-
 .log-top { display: flex; justify-content: space-between; }
 .log-tool { font-weight: 700; color: var(--accent); }
-.log-tool.watch-tool { color: var(--watch); }
+.log-tool.watch-tool  { color: var(--watch); }
 .log-tool.manual-tool { color: var(--manual); }
-.log-ts { color: var(--muted); font-size: 9px; }
+.log-ts      { color: var(--muted); font-size: 9px; }
+.log-url     { color: var(--muted); font-size: 9px; word-break: break-all; }
+.log-params  { color: var(--muted2); font-size: 9px; }
 .log-reasoning { color: var(--watch); font-style: italic; font-size: 10px; border-left: 2px solid var(--watch); padding-left: 5px; }
-.log-url { color: var(--muted); font-size: 9px; word-break: break-all; }
-.log-params { color: var(--muted); font-size: 9px; }
-.log-status { font-size: 9px; padding: 1px 4px; border-radius: 3px; align-self: flex-start; }
-.log-status.ok   { background: rgba(61,220,132,.12); color: var(--ok); }
-.log-status.fail { background: rgba(255,107,107,.12); color: var(--err); }
+.log-status  { font-size: 9px; padding: 1px 5px; border-radius: 3px; align-self: flex-start; }
+.log-status.ok   { background: rgba(34,197,94,.1); color: var(--ok); }
+.log-status.fail { background: rgba(239,68,68,.1); color: var(--err); }
 
-/* ── Scrollbars ── */
+/* ─── UTILITY ──────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-/* ── Hidden ── */
 .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
-<!-- ── HEADER ── -->
+<!-- ══════════════════════════════════════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════════════════════════════════════════ -->
 <header>
-  <h1>🎥 PTZ AI Controller</h1>
-  <span class="header-cam" id="activeCamLabel">Camera 2 — 192.168.100.87</span>
-  <a href="/gamepad.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:8px;" onmouseover="this.style.color='#aaa'" onmouseout="this.style.color='var(--muted)'">🎮 Volunteer Mode</a>
+  <button class="hdr-btn" id="controlsToggle" onclick="toggleDrawer('left')">⚙ Controls</button>
+  <div class="hdr-divider"></div>
+
+  <div class="hdr-wordmark">
+    <div class="dot"></div>
+    <div>
+      <div class="hdr-title">PTZ Director</div>
+      <div class="hdr-sub" id="activeCamLabel">Camera 2 — 192.168.100.87</div>
+    </div>
+  </div>
+
+  <div id="hdrStreamPill" class="hdr-pill" style="display:none">
+    <div class="dot"></div>
+    <span id="hdrStreamLabel">LIVE</span>
+  </div>
+
+  <div class="hdr-divider"></div>
+  <a href="/gamepad.html" class="hdr-btn" style="text-decoration:none">🎮 Volunteer</a>
+  <button class="hdr-btn" id="chatToggle" onclick="toggleDrawer('right')">💬 AI Chat</button>
+  <div class="hdr-divider"></div>
   <button id="stopBtn" onclick="emergencyStop()">⏹ STOP</button>
 </header>
 
-<main>
-<!-- ════════════════════════════════ LEFT PANEL ════════════════════════════════ -->
-<div class="left-panel">
+<!-- ══════════════════════════════════════════════════════════════════════════
+     WORKSPACE
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="workspace">
 
-  <!-- CAMERA PREVIEWS -->
-  <div class="previews">
-    <div class="cam-box" id="camBox1" onclick="selectCamera(1)">
-      <div class="cam-offline" id="camOffline1">Not connected</div>
-      <img id="camImg1" style="display:none">
-      <div class="cam-label">Camera 1 <span class="active-dot"></span></div>
+  <!-- CAMERA AREA -->
+  <div class="cam-area">
+    <div class="cam-grid" id="camGrid">
+
+      <!-- Camera 1 -->
+      <div class="cam-card" id="card-1" onclick="selectCamera(1)">
+        <div class="cam-offline" id="offline-1">
+          <div class="off-icon">📷</div>
+          <div class="off-name">Camera 1</div>
+          <div class="off-ip">192.168.100.86</div>
+        </div>
+        <img id="img-1" style="display:none" alt="Camera 1 feed">
+        <div class="tally-badge" id="tally-1"></div>
+        <div class="cam-status-pill" id="pill-1">
+          <div class="status-dot" id="dot-1"></div>
+          <span class="status-lat" id="lat-1">–</span>
+        </div>
+        <div class="cam-info">
+          <div>
+            <div class="cam-name">Camera 1</div>
+            <div class="cam-ip">192.168.100.86</div>
+          </div>
+          <div class="cam-select-dot"></div>
+        </div>
+      </div>
+
+      <!-- Camera 2 -->
+      <div class="cam-card is-selected" id="card-2" onclick="selectCamera(2)">
+        <div class="cam-offline" id="offline-2">
+          <div class="off-icon">📷</div>
+          <div class="off-name">Camera 2</div>
+          <div class="off-ip">192.168.100.87</div>
+        </div>
+        <img id="img-2" style="display:none" alt="Camera 2 feed">
+        <div class="tally-badge" id="tally-2"></div>
+        <div class="cam-status-pill" id="pill-2">
+          <div class="status-dot" id="dot-2"></div>
+          <span class="status-lat" id="lat-2">–</span>
+        </div>
+        <div class="cam-info">
+          <div>
+            <div class="cam-name">Camera 2</div>
+            <div class="cam-ip">192.168.100.87</div>
+          </div>
+          <div class="cam-select-dot"></div>
+        </div>
+      </div>
+
+      <!-- Camera 3 -->
+      <div class="cam-card" id="card-3" onclick="selectCamera(3)">
+        <div class="cam-offline" id="offline-3">
+          <div class="off-icon">📷</div>
+          <div class="off-name">Camera 3</div>
+          <div class="off-ip">192.168.100.88</div>
+        </div>
+        <img id="img-3" style="display:none" alt="Camera 3 feed">
+        <div class="tally-badge" id="tally-3"></div>
+        <div class="cam-status-pill" id="pill-3">
+          <div class="status-dot" id="dot-3"></div>
+          <span class="status-lat" id="lat-3">–</span>
+        </div>
+        <div class="cam-info">
+          <div>
+            <div class="cam-name">Camera 3</div>
+            <div class="cam-ip">192.168.100.88</div>
+          </div>
+          <div class="cam-select-dot"></div>
+        </div>
+      </div>
+
+    </div><!-- /cam-grid -->
+  </div><!-- /cam-area -->
+
+  <!-- STATUS SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- ATEM -->
+    <div class="sb-section" id="atemSection">
+      <div class="sb-title">ATEM Switcher</div>
+      <div class="conn-status" id="atemConn">
+        <div class="dot"></div>
+        <span class="conn-label">Not configured</span>
+      </div>
+      <div id="atemDetail" style="display:none">
+        <div class="atem-bus" style="margin-top:10px">
+          <div class="atem-slot pgm">
+            <div class="atem-slot-label">Program</div>
+            <div class="atem-slot-val" id="atemPgm">–</div>
+          </div>
+          <div class="atem-slot pvw">
+            <div class="atem-slot-label">Preview</div>
+            <div class="atem-slot-val" id="atemPvw">–</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="cam-box active" id="camBox2" onclick="selectCamera(2)">
-      <div class="cam-offline" id="camOffline2">Not connected</div>
-      <img id="camImg2" style="display:none">
-      <div class="cam-label">Camera 2 <span class="active-dot"></span></div>
+
+    <!-- OBS -->
+    <div class="sb-section" id="obsSection">
+      <div class="sb-title">OBS Studio</div>
+      <div class="conn-status" id="obsConn">
+        <div class="dot"></div>
+        <span class="conn-label">Not configured</span>
+      </div>
+      <div id="obsDetail" style="display:none; margin-top:10px;">
+        <div style="margin-bottom:8px">
+          <span class="obs-streaming-badge off" id="obsStreamBadge">
+            <span class="blink"></span>
+            <span id="obsStreamLabel">Offline</span>
+          </span>
+        </div>
+        <div class="sb-row">
+          <span class="sb-row-label">Scene</span>
+          <span class="sb-row-val" id="obsScene">–</span>
+        </div>
+        <div class="sb-row">
+          <span class="sb-row-label">Bitrate</span>
+          <span class="sb-row-val" id="obsBitrate">–</span>
+        </div>
+        <div class="sb-row">
+          <span class="sb-row-label">FPS</span>
+          <span class="sb-row-val" id="obsFps">–</span>
+        </div>
+        <div class="sb-row">
+          <span class="sb-row-label">CPU</span>
+          <span class="sb-row-val" id="obsCpu">–</span>
+        </div>
+        <div class="sb-row">
+          <span class="sb-row-label">Recording</span>
+          <span class="sb-row-val" id="obsRec">–</span>
+        </div>
+      </div>
     </div>
-    <div class="cam-box" id="camBox3" onclick="selectCamera(3)">
-      <div class="cam-offline" id="camOffline3">Not connected</div>
-      <img id="camImg3" style="display:none">
-      <div class="cam-label">Camera 3 <span class="active-dot"></span></div>
+
+    <!-- Camera Network -->
+    <div class="sb-section">
+      <div class="sb-title">Camera Network</div>
+      <div id="camNetList">
+        <div class="cam-net-row"><div class="cam-net-dot" id="net-dot-1"></div><span class="cam-net-name">Camera 1</span><span class="cam-net-lat" id="net-lat-1">…</span></div>
+        <div class="cam-net-row"><div class="cam-net-dot" id="net-dot-2"></div><span class="cam-net-name">Camera 2</span><span class="cam-net-lat" id="net-lat-2">…</span></div>
+        <div class="cam-net-row"><div class="cam-net-dot" id="net-dot-3"></div><span class="cam-net-name">Camera 3</span><span class="cam-net-lat" id="net-lat-3">…</span></div>
+      </div>
     </div>
+
+    <!-- System -->
+    <div class="sb-section">
+      <div class="sb-title">System</div>
+      <div class="sb-row">
+        <span class="sb-row-label">Server uptime</span>
+        <span class="sb-row-val" id="sysUptime">–</span>
+      </div>
+      <div class="sb-row">
+        <span class="sb-row-label">Watch Mode</span>
+        <span class="sb-row-val" id="sysWatch">OFF</span>
+      </div>
+      <div class="sb-row">
+        <span class="sb-row-label">Active camera</span>
+        <span class="sb-row-val" id="sysActiveCam">–</span>
+      </div>
+      <div class="sb-row" style="margin-top:6px; border:none">
+        <a href="/gamepad.html" style="color:var(--muted2);font-size:10px;text-decoration:none">→ Volunteer Mode</a>
+      </div>
+    </div>
+
+  </aside>
+</div><!-- /workspace -->
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     DRAWER OVERLAY
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeAllDrawers()"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     LEFT DRAWER — CONTROLS
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="drawer drawer-left" id="drawerLeft">
+  <div class="drawer-hdr">
+    <h2>Camera Controls</h2>
+    <button class="drawer-close" onclick="toggleDrawer('left')">×</button>
   </div>
+  <div class="drawer-body">
 
-  <!-- WATCH MODE -->
-  <div class="watch-bar">
-    <label>👁 Watch</label>
-    <input id="watchInstruction" type="text" placeholder="e.g. keep me centered, follow the speaker…" />
-    <span class="watch-timer" id="watchTimer"></span>
-    <button id="watchStartBtn" onclick="startWatch()">▶ Start</button>
-    <button id="watchStopBtn" onclick="stopWatch()">■ Stop Watch</button>
-  </div>
-
-  <!-- MANUAL CONTROLS -->
-  <div class="controls">
+    <!-- Camera Select -->
+    <div class="ctrl-block">
+      <div class="ctrl-block-title">Active Camera</div>
+      <div class="cam-selector">
+        <button class="cam-sel-btn" id="sel-1" onclick="selectCamera(1)">Cam 1</button>
+        <button class="cam-sel-btn active" id="sel-2" onclick="selectCamera(2)">Cam 2</button>
+        <button class="cam-sel-btn" id="sel-3" onclick="selectCamera(3)">Cam 3</button>
+      </div>
+    </div>
 
     <!-- PTZ + Zoom/Focus -->
-    <div class="ctrl-section">
-      <div class="ctrl-section-title">Pan · Tilt · Zoom · Focus</div>
-      <div class="ptz-row">
-        <!-- D-pad -->
+    <div class="ctrl-block">
+      <div class="ctrl-block-title">Pan · Tilt · Zoom · Focus</div>
+      <div class="ptz-layout">
         <div class="dpad-wrap">
           <div class="dpad">
             <button onmousedown="startMove('leftup')"  onmouseup="stopMove()" onmouseleave="stopMove()">↖</button>
@@ -330,39 +834,40 @@ main { display: flex; flex: 1; min-height: 0; }
             <button onmousedown="startMove('down')"      onmouseup="stopMove()" onmouseleave="stopMove()">↓</button>
             <button onmousedown="startMove('rightdown')" onmouseup="stopMove()" onmouseleave="stopMove()">↘</button>
           </div>
-          <div class="speed-row">
-            <span class="small-label">Speed</span>
-            <input type="range" id="panSpeed" min="1" max="24" value="10" oninput="updateSpeedLabel()">
-            <span class="speed-val" id="panSpeedVal">10</span>
-          </div>
-          <div class="speed-row">
-            <span class="small-label">Tilt</span>
-            <input type="range" id="tiltSpeed" min="1" max="20" value="8" oninput="updateSpeedLabel()">
-            <span class="speed-val" id="tiltSpeedVal">8</span>
+          <div class="speed-group">
+            <div class="speed-row">
+              <span>Pan</span>
+              <input type="range" id="panSpeed" min="1" max="24" value="10" oninput="document.getElementById('panSpeedVal').textContent=this.value">
+              <span class="speed-val" id="panSpeedVal">10</span>
+            </div>
+            <div class="speed-row">
+              <span>Tilt</span>
+              <input type="range" id="tiltSpeed" min="1" max="20" value="8" oninput="document.getElementById('tiltSpeedVal').textContent=this.value">
+              <span class="speed-val" id="tiltSpeedVal">8</span>
+            </div>
           </div>
         </div>
 
-        <!-- Zoom + Focus -->
-        <div class="zoom-focus">
+        <div class="zoom-focus-col">
           <div>
-            <div class="small-label" style="margin-bottom:4px">Zoom</div>
+            <div class="ctrl-sublabel">Zoom</div>
             <div class="btn-row">
               <button class="ctrl-btn" onmousedown="startZoom('in')"  onmouseup="stopZoom()" onmouseleave="stopZoom()">+ In</button>
               <button class="ctrl-btn" onmousedown="startZoom('out')" onmouseup="stopZoom()" onmouseleave="stopZoom()">− Out</button>
             </div>
-            <div class="speed-row" style="margin-top:4px">
-              <span class="small-label">Speed</span>
+            <div class="speed-row" style="margin-top:5px">
+              <span>Spd</span>
               <input type="range" id="zoomSpeed" min="1" max="7" value="3" oninput="this.nextElementSibling.textContent=this.value">
               <span class="speed-val">3</span>
             </div>
           </div>
           <div>
-            <div class="small-label" style="margin-bottom:4px">Focus</div>
+            <div class="ctrl-sublabel">Focus</div>
             <div class="btn-row">
               <button class="ctrl-btn toggle-on" id="focusAutoBtn" onclick="setFocusMode('auto')">Auto</button>
               <button class="ctrl-btn" id="focusManBtn" onclick="setFocusMode('manual')">Manual</button>
             </div>
-            <div class="btn-row" id="focusManualBtns" style="margin-top:4px;display:none">
+            <div class="btn-row" id="focusManualBtns" style="margin-top:5px;display:none">
               <button class="ctrl-btn" onmousedown="startFocus('near')" onmouseup="stopFocus()" onmouseleave="stopFocus()">Near</button>
               <button class="ctrl-btn" onmousedown="startFocus('far')"  onmouseup="stopFocus()" onmouseleave="stopFocus()">Far</button>
             </div>
@@ -372,10 +877,10 @@ main { display: flex; flex: 1; min-height: 0; }
     </div>
 
     <!-- Exposure -->
-    <div class="ctrl-section">
-      <div class="ctrl-section-title">Exposure</div>
+    <div class="ctrl-block">
+      <div class="ctrl-block-title">Exposure</div>
       <div class="image-controls">
-        <div class="ctrl-group">
+        <div class="ctrl-row">
           <label>Mode</label>
           <select class="ctrl-select" id="aeMode" onchange="setAEMode(this.value)">
             <option value="auto">Auto</option>
@@ -385,7 +890,7 @@ main { display: flex; flex: 1; min-height: 0; }
             <option value="bright">Bright</option>
           </select>
         </div>
-        <div class="ctrl-group" id="irisGroup">
+        <div class="ctrl-row" id="irisGroup">
           <label>Iris</label>
           <select class="ctrl-select" id="irisVal" onchange="manual('set_iris',{value:this.value})">
             <option>F1.8</option><option>F2.0</option><option>F2.4</option>
@@ -394,39 +899,36 @@ main { display: flex; flex: 1; min-height: 0; }
             <option>F8.0</option><option>F9.6</option><option>F11.0</option><option>Close</option>
           </select>
         </div>
-        <div class="ctrl-group" id="shutterGroup">
+        <div class="ctrl-row" id="shutterGroup">
           <label>Shutter</label>
           <select class="ctrl-select" id="shutterVal" onchange="manual('set_shutter',{value:this.value})">
             <option>1/30</option><option>1/60</option><option>1/90</option><option>1/100</option>
             <option>1/125</option><option>1/180</option><option>1/250</option><option>1/350</option>
             <option>1/500</option><option>1/725</option><option>1/1000</option><option>1/1500</option>
-            <option>1/2000</option><option>1/3000</option><option>1/4000</option><option>1/6000</option><option>1/10000</option>
+            <option>1/2000</option><option>1/3000</option><option>1/4000</option><option>1/6000</option>
+            <option>1/10000</option>
           </select>
         </div>
-        <div class="ctrl-group" id="gainGroup">
+        <div class="slider-row" id="gainGroup">
           <label>Gain <span id="gainLabel">0</span> dB</label>
-          <div class="slider-group">
-            <input type="range" min="0" max="15" value="0" id="gainSlider"
-              oninput="document.getElementById('gainLabel').textContent=this.value"
-              onchange="manual('set_gain',{value:parseInt(this.value)})">
-          </div>
+          <input type="range" min="0" max="15" value="0" id="gainSlider"
+            oninput="document.getElementById('gainLabel').textContent=this.value"
+            onchange="manual('set_gain',{value:parseInt(this.value)})">
         </div>
-        <div class="ctrl-group">
+        <div class="slider-row">
           <label>Sharpness <span id="sharpLabel">8</span></label>
-          <div class="slider-group">
-            <input type="range" min="0" max="15" value="8" id="sharpSlider"
-              oninput="document.getElementById('sharpLabel').textContent=this.value"
-              onchange="manual('set_sharpness',{value:parseInt(this.value)})">
-          </div>
+          <input type="range" min="0" max="15" value="8" id="sharpSlider"
+            oninput="document.getElementById('sharpLabel').textContent=this.value"
+            onchange="manual('set_sharpness',{value:parseInt(this.value)})">
         </div>
       </div>
     </div>
 
     <!-- White Balance -->
-    <div class="ctrl-section">
-      <div class="ctrl-section-title">White Balance</div>
+    <div class="ctrl-block">
+      <div class="ctrl-block-title">White Balance</div>
       <div class="image-controls">
-        <div class="ctrl-group">
+        <div class="ctrl-row">
           <label>Mode</label>
           <select class="ctrl-select" id="wbMode" onchange="setWBMode(this.value)">
             <option value="auto">Auto</option>
@@ -436,130 +938,355 @@ main { display: flex; flex: 1; min-height: 0; }
             <option value="manual">Manual</option>
           </select>
         </div>
-        <div class="ctrl-group" id="rgainGroup" style="display:none">
+        <div class="slider-row" id="rgainGroup" style="display:none">
           <label>R-Gain <span id="rgainLabel">128</span></label>
-          <div class="slider-group">
-            <input type="range" min="0" max="255" value="128" id="rgainSlider"
-              oninput="document.getElementById('rgainLabel').textContent=this.value"
-              onchange="manual('set_rgain',{value:parseInt(this.value)})">
-          </div>
+          <input type="range" min="0" max="255" value="128" id="rgainSlider"
+            oninput="document.getElementById('rgainLabel').textContent=this.value"
+            onchange="manual('set_rgain',{value:parseInt(this.value)})">
         </div>
-        <div class="ctrl-group" id="bgainGroup" style="display:none">
+        <div class="slider-row" id="bgainGroup" style="display:none">
           <label>B-Gain <span id="bgainLabel">128</span></label>
-          <div class="slider-group">
-            <input type="range" min="0" max="255" value="128" id="bgainSlider"
-              oninput="document.getElementById('bgainLabel').textContent=this.value"
-              onchange="manual('set_bgain',{value:parseInt(this.value)})">
-          </div>
+          <input type="range" min="0" max="255" value="128" id="bgainSlider"
+            oninput="document.getElementById('bgainLabel').textContent=this.value"
+            onchange="manual('set_bgain',{value:parseInt(this.value)})">
         </div>
       </div>
     </div>
 
     <!-- Presets + AutoTrack -->
-    <div class="ctrl-section">
-      <div class="ctrl-section-title">Presets · Auto-Track</div>
-      <div class="preset-row">
-        <span class="small-label">Recall</span>
+    <div class="ctrl-block">
+      <div class="ctrl-block-title">Presets</div>
+      <div class="ctrl-sublabel" style="margin-bottom:6px">Recall</div>
+      <div class="preset-grid">
         <button class="preset-btn" onclick="manual('recall_preset',{preset_number:1})">1</button>
         <button class="preset-btn" onclick="manual('recall_preset',{preset_number:2})">2</button>
         <button class="preset-btn" onclick="manual('recall_preset',{preset_number:3})">3</button>
         <button class="preset-btn" onclick="manual('recall_preset',{preset_number:4})">4</button>
         <button class="preset-btn" onclick="manual('recall_preset',{preset_number:5})">5</button>
         <button class="preset-btn" onclick="manual('recall_preset',{preset_number:6})">6</button>
-        <div class="preset-sep"></div>
-        <div class="preset-save-row">
-          <span class="small-label">Save to</span>
-          <input type="number" class="preset-num" id="savePresetNum" min="0" max="254" value="1">
-          <button class="ctrl-btn" onclick="manual('save_preset',{preset_number:parseInt(document.getElementById('savePresetNum').value)})">Save</button>
-        </div>
       </div>
-      <div class="btn-row" style="margin-top:8px">
+      <div class="preset-save-row">
+        <span style="font-size:10px;color:var(--muted2)">Save to</span>
+        <input type="number" class="preset-num-input" id="savePresetNum" min="0" max="254" value="1">
+        <button class="ctrl-btn" onclick="manual('save_preset',{preset_number:parseInt(document.getElementById('savePresetNum').value)})">Save</button>
+      </div>
+    </div>
+
+    <!-- Auto-Track + Stop -->
+    <div class="ctrl-block">
+      <div class="ctrl-block-title">Tracking</div>
+      <div class="btn-row">
         <button class="ctrl-btn" id="autoTrackBtn" onclick="toggleAutoTrack()">Auto-Track: OFF</button>
         <button class="ctrl-btn danger" onclick="manual('stop',{})">Stop Movement</button>
       </div>
     </div>
 
-  </div><!-- /controls -->
-</div><!-- /left-panel -->
-
-<!-- ════════════════════════════════ RIGHT PANEL (CHAT) ════════════════════════════════ -->
-<div class="right-panel">
-  <div class="panel-header"><span>AI Chat</span></div>
-
-  <div id="messages">
-    <div class="msg system">Type a command — e.g. "pan left slowly", "zoom in on the door", "switch to camera 1", "follow me"</div>
-  </div>
-
-  <div class="input-bar">
-    <input id="chatInput" placeholder="Tell the camera what to do…" autocomplete="off" />
-    <button id="sendBtn" onclick="sendMessage()">Send</button>
-  </div>
-
-  <div class="log-wrap">
-    <div class="log-header">
-      <span>Command Log</span>
-      <button id="clearLog" onclick="clearLog()">Clear</button>
+    <!-- Watch Mode -->
+    <div class="ctrl-block">
+      <div class="ctrl-block-title">Watch Mode</div>
+      <div class="watch-row">
+        <label>👁</label>
+        <input id="watchInstruction" type="text" placeholder="e.g. keep me centered, follow the speaker…" />
+      </div>
+      <div class="watch-btns">
+        <button id="watchStartBtn" onclick="startWatch()">▶ Start</button>
+        <button id="watchStopBtn" onclick="stopWatch()">■ Stop</button>
+        <span class="watch-timer" id="watchTimer"></span>
+      </div>
     </div>
-    <div id="cmdLog"><div style="color:var(--muted);padding:4px 2px">No commands yet.</div></div>
-  </div>
-</div>
 
-</main>
+  </div><!-- /drawer-body -->
+</div><!-- /drawer-left -->
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     RIGHT DRAWER — AI CHAT
+══════════════════════════════════════════════════════════════════════════════ -->
+<div class="drawer drawer-right" id="drawerRight">
+  <div class="drawer-hdr">
+    <h2>AI Assistant</h2>
+    <button class="drawer-close" onclick="toggleDrawer('right')">×</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="chat-tabs">
+    <div class="chat-tab active" id="tabChat" onclick="switchTab('chat')">Chat</div>
+    <div class="chat-tab" id="tabLog" onclick="switchTab('log')">Command Log</div>
+  </div>
+
+  <!-- Chat pane -->
+  <div class="chat-pane" id="paneChat" style="display:flex; flex:1; flex-direction:column; min-height:0">
+    <div id="messages">
+      <div class="msg system">Type a command — "pan left slowly", "zoom in on the door", "switch to camera 1", "follow me"</div>
+    </div>
+    <div class="chat-input-bar">
+      <input id="chatInput" placeholder="Tell the camera what to do…" autocomplete="off" />
+      <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <!-- Log pane -->
+  <div class="log-pane" id="paneLog" style="display:none">
+    <div class="log-pane-header">
+      <span>Command Log</span>
+      <button id="clearLogBtn" onclick="clearLog()">Clear</button>
+    </div>
+    <div id="cmdLog"><div style="color:var(--muted);padding:6px">No commands yet.</div></div>
+  </div>
+
+</div><!-- /drawer-right -->
 
 <script>
-// ════════════════════════ STATE ════════════════════════
-let chatHistory  = [];
-let activeCamId  = 2;
-let autoTrackOn  = false;
-let focusMode    = 'auto';
-let watchRunning = false;
-let watchStart   = null;
-let watchTimerInterval = null;
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+let chatHistory    = [];
+let activeCamId    = 2;
+let autoTrackOn    = false;
+let focusMode      = 'auto';
+let watchRunning   = false;
+let watchStart     = null;
+let watchTimerInt  = null;
+let moveActive     = false;
+let zoomActive     = false;
+let focusActive    = false;
+let activeDrawer   = null; // 'left' | 'right' | null
 
-// ════════════════════════ CAMERA PREVIEWS (persistent MJPEG stream) ════════════
-// Each <img> points directly to the MJPEG stream endpoint — browser renders frames
-// natively as they arrive with no JavaScript polling overhead.
-// If the camera is offline the server returns 503 and we show the overlay + retry.
+const CAM_IPS = { 1: '192.168.100.86', 2: '192.168.100.87', 3: '192.168.100.88' };
 
-const streamRetryTimers = {};
-
-function initPreviews() {
-  for (let id = 1; id <= 3; id++) {
-    connectPreview(id);
+// ════════════════════════════════════════════════════════════
+//  DRAWER SYSTEM
+// ════════════════════════════════════════════════════════════
+function toggleDrawer(side) {
+  if (activeDrawer === side) {
+    closeAllDrawers();
+  } else {
+    openDrawer(side);
   }
 }
 
+function openDrawer(side) {
+  closeAllDrawers(false);
+  activeDrawer = side;
+  document.getElementById('drawerLeft').classList.toggle('open', side === 'left');
+  document.getElementById('drawerRight').classList.toggle('open', side === 'right');
+  document.getElementById('drawerOverlay').classList.add('visible');
+  document.getElementById('controlsToggle').classList.toggle('active', side === 'left');
+  document.getElementById('chatToggle').classList.toggle('active', side === 'right');
+}
+
+function closeAllDrawers(clearState = true) {
+  document.getElementById('drawerLeft').classList.remove('open');
+  document.getElementById('drawerRight').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('visible');
+  document.getElementById('controlsToggle').classList.remove('active');
+  document.getElementById('chatToggle').classList.remove('active');
+  if (clearState) activeDrawer = null;
+}
+
+// ════════════════════════════════════════════════════════════
+//  CHAT TABS
+// ════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.getElementById('tabChat').classList.toggle('active', tab === 'chat');
+  document.getElementById('tabLog').classList.toggle('active',  tab === 'log');
+  document.getElementById('paneChat').style.display = tab === 'chat' ? 'flex' : 'none';
+  document.getElementById('paneLog').style.display  = tab === 'log'  ? 'flex' : 'none';
+}
+
+// ════════════════════════════════════════════════════════════
+//  CAMERA PREVIEWS
+// ════════════════════════════════════════════════════════════
+const streamRetryTimers = {};
+
+function initPreviews() {
+  for (let id = 1; id <= 3; id++) connectPreview(id);
+}
+
 function connectPreview(id) {
-  const img     = document.getElementById(`camImg${id}`);
-  const offline = document.getElementById(`camOffline${id}`);
+  const img = document.getElementById(`img-${id}`);
+  const off = document.getElementById(`offline-${id}`);
 
-  img.onload = () => {
-    img.style.display   = 'block';
-    offline.style.display = 'none';
-  };
-
+  img.onload = () => { img.style.display = 'block'; off.style.display = 'none'; };
   img.onerror = () => {
-    img.style.display   = 'none';
-    offline.style.display = 'flex';
-    // Retry after 10s — camera may come online later
+    img.style.display = 'none';
+    off.style.display = 'flex';
     clearTimeout(streamRetryTimers[id]);
     streamRetryTimers[id] = setTimeout(() => connectPreview(id), 10_000);
   };
-
-  // Cache-bust so the browser re-issues the request on reconnect
   img.src = `/api/cameras/${id}/stream?t=${Date.now()}`;
 }
 
 async function selectCamera(id) {
-  await fetch('/api/cameras/active', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id}) });
+  await fetch('/api/cameras/active', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  });
   activeCamId = id;
-  document.querySelectorAll('.cam-box').forEach((b, i) => b.classList.toggle('active', i+1 === id));
-  const cam = { 1: '192.168.100.86', 2: '192.168.100.87', 3: '192.168.100.88' };
-  document.getElementById('activeCamLabel').textContent = `Camera ${id} — ${cam[id]}`;
-  addLog({ ts: new Date().toISOString(), tool: 'switch_camera', input: {camera_id: id}, result: {ok:true}, ms: 0, ok: true, source: 'manual' });
+
+  // Card borders
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById(`card-${i}`).classList.toggle('is-selected', i === id);
+  }
+  // Drawer selector buttons
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById(`sel-${i}`)?.classList.toggle('active', i === id);
+  }
+  // Header label
+  document.getElementById('activeCamLabel').textContent = `Camera ${id} — ${CAM_IPS[id]}`;
+
+  addLog({ ts: new Date().toISOString(), tool: 'switch_camera', input: { camera_id: id }, result: { ok: true }, ms: 0, ok: true, source: 'manual' });
 }
 
-// ════════════════════════ WATCH MODE ════════════════════════
+// ════════════════════════════════════════════════════════════
+//  STATUS POLLING  (cameras + ATEM + OBS, every 3s)
+// ════════════════════════════════════════════════════════════
+async function pollStatus() {
+  try {
+    const res  = await fetch('/api/status');
+    const data = await res.json();
+    updateCameraNetwork(data.cameras, data.ateminputs, data.atem);
+    updateATEM(data.atem, data.ateminputs);
+    updateOBS(data.obs);
+    updateSystem(data.system);
+  } catch (_) {}
+}
+
+function updateCameraNetwork(cameras, ateminputs, atem) {
+  for (const cam of cameras) {
+    const dot = document.getElementById(`net-dot-${cam.id}`);
+    const lat = document.getElementById(`net-lat-${cam.id}`);
+    // Card pill
+    const sdot = document.getElementById(`dot-${cam.id}`);
+    const slat = document.getElementById(`lat-${cam.id}`);
+
+    if (cam.online) {
+      dot?.classList.add('online');    dot?.classList.remove('offline');
+      sdot?.classList.add('online');   sdot?.classList.remove('offline');
+      const ms = `${cam.latency}ms`;
+      if (lat) { lat.textContent = ms; lat.className = `cam-net-lat ${cam.latency < 50 ? 'fast' : cam.latency > 200 ? 'slow' : ''}`; }
+      if (slat) slat.textContent = ms;
+    } else {
+      dot?.classList.add('offline');   dot?.classList.remove('online');
+      sdot?.classList.add('offline');  sdot?.classList.remove('online');
+      if (lat)  { lat.textContent = 'OFFLINE'; lat.className = 'cam-net-lat slow'; }
+      if (slat) slat.textContent = 'OFFLINE';
+    }
+
+    // Tally overlays
+    const badge = document.getElementById(`tally-${cam.id}`);
+    const card  = document.getElementById(`card-${cam.id}`);
+    if (!badge || !card) continue;
+
+    const atInput = ateminputs?.[cam.id];
+    const tally   = atem?.tally?.[cam.id];
+
+    badge.className = 'tally-badge';
+    card.classList.remove('is-live', 'is-pvw');
+
+    if (atem?.connected && tally) {
+      if (tally.program) {
+        badge.className = 'tally-badge live';
+        badge.textContent = 'LIVE';
+        if (!card.classList.contains('is-selected')) card.classList.add('is-live');
+      } else if (tally.preview) {
+        badge.className = 'tally-badge pvw';
+        badge.textContent = 'PVW';
+        if (!card.classList.contains('is-selected')) card.classList.add('is-pvw');
+      }
+    }
+  }
+}
+
+function updateATEM(atem, ateminputs) {
+  const connEl   = document.getElementById('atemConn');
+  const detailEl = document.getElementById('atemDetail');
+
+  if (!atem?.configured) {
+    connEl.className = 'conn-status';
+    connEl.querySelector('.conn-label').textContent = 'Not configured — add ATEM_IP to .env';
+    detailEl.style.display = 'none';
+    return;
+  }
+  if (!atem.connected) {
+    connEl.className = 'conn-status err';
+    connEl.querySelector('.conn-label').textContent = 'Connecting…';
+    detailEl.style.display = 'none';
+    return;
+  }
+
+  connEl.className = 'conn-status ok';
+  connEl.querySelector('.conn-label').textContent = 'Connected';
+  detailEl.style.display = 'block';
+
+  document.getElementById('atemPgm').textContent = atem.programName || `Input ${atem.programInput}`;
+  document.getElementById('atemPvw').textContent = atem.previewName || `Input ${atem.previewInput}`;
+
+  // Header pill
+  const pill = document.getElementById('hdrStreamPill');
+  pill.style.display = 'flex';
+  pill.className = 'hdr-pill live';
+  document.getElementById('hdrStreamLabel').textContent = `PGM: ${atem.programName || atem.programInput}`;
+}
+
+function updateOBS(obs) {
+  const connEl   = document.getElementById('obsConn');
+  const detailEl = document.getElementById('obsDetail');
+
+  if (!obs?.configured) {
+    connEl.className = 'conn-status';
+    connEl.querySelector('.conn-label').textContent = 'Not configured — add OBS_WS_URL to .env';
+    detailEl.style.display = 'none';
+    return;
+  }
+  if (!obs.connected) {
+    connEl.className = 'conn-status err';
+    connEl.querySelector('.conn-label').textContent = 'Disconnected';
+    detailEl.style.display = 'none';
+    return;
+  }
+
+  connEl.className = 'conn-status ok';
+  connEl.querySelector('.conn-label').textContent = 'Connected';
+  detailEl.style.display = 'block';
+
+  const badge = document.getElementById('obsStreamBadge');
+  const label = document.getElementById('obsStreamLabel');
+  if (obs.streaming) {
+    badge.className = 'obs-streaming-badge on';
+    label.textContent = 'STREAMING';
+  } else {
+    badge.className = 'obs-streaming-badge off';
+    label.textContent = 'Not streaming';
+  }
+
+  document.getElementById('obsScene').textContent   = obs.scene || '–';
+  document.getElementById('obsFps').textContent     = obs.fps != null ? `${obs.fps} fps` : '–';
+  document.getElementById('obsCpu').textContent     = obs.cpuUsage != null ? `${obs.cpuUsage}%` : '–';
+  document.getElementById('obsRec').textContent     = obs.recording ? 'REC' : 'OFF';
+  document.getElementById('obsRec').className       = `sb-row-val ${obs.recording ? 'live' : 'muted'}`;
+
+  if (obs.bitrateKbps) {
+    document.getElementById('obsBitrate').textContent = `${obs.bitrateKbps} kbps`;
+    document.getElementById('obsBitrate').className   = `sb-row-val ${obs.bitrateKbps > 1000 ? 'ok' : 'warn'}`;
+  } else {
+    document.getElementById('obsBitrate').textContent = '–';
+  }
+}
+
+function updateSystem(sys) {
+  if (!sys) return;
+  const s = sys.uptime;
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  document.getElementById('sysUptime').textContent = h > 0
+    ? `${h}h ${m}m` : m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+  document.getElementById('sysWatch').textContent    = sys.watching ? 'ACTIVE' : 'OFF';
+  document.getElementById('sysWatch').className      = `sb-row-val ${sys.watching ? 'ok' : 'muted'}`;
+  document.getElementById('sysActiveCam').textContent = `Camera ${sys.activeCamera}`;
+}
+
+// ════════════════════════════════════════════════════════════
+//  WATCH MODE
+// ════════════════════════════════════════════════════════════
 let sseSource = null;
 
 function connectSSE() {
@@ -567,25 +1294,19 @@ function connectSSE() {
   sseSource = new EventSource('/api/watch/events');
   sseSource.onmessage = (e) => {
     const d = JSON.parse(e.data);
-    if (d.event === 'reasoning') {
-      addReasoningLog(d.ts, d.text);
-    } else if (d.event === 'command') {
-      addLog(d.entry);
-    } else if (d.event === 'stopped') {
-      setWatchUI(false);
-      addSystemMsg(`Watch Mode stopped: ${d.reason}`);
-    } else if (d.event === 'error') {
-      addSystemMsg(`Watch error: ${d.message}`);
-    }
+    if      (d.event === 'reasoning') addReasoningLog(d.ts, d.text);
+    else if (d.event === 'command')   addLog(d.entry);
+    else if (d.event === 'stopped')   { setWatchUI(false); addSystemMsg(`Watch Mode stopped: ${d.reason}`); }
+    else if (d.event === 'error')     addSystemMsg(`Watch error: ${d.message}`);
   };
 }
 
 async function startWatch() {
   const instr = document.getElementById('watchInstruction').value.trim();
   if (!instr) { document.getElementById('watchInstruction').focus(); return; }
-  const res = await fetch('/api/watch/start', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({instruction: instr}),
+  const res  = await fetch('/api/watch/start', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ instruction: instr }),
   });
   const data = await res.json();
   if (data.error) { addSystemMsg(`Watch error: ${data.error}`); return; }
@@ -607,57 +1328,45 @@ function setWatchUI(running) {
   if (running) {
     watchStart = Date.now();
     timer.style.display = 'inline';
-    watchTimerInterval = setInterval(() => {
+    watchTimerInt = setInterval(() => {
       const s = Math.floor((Date.now() - watchStart) / 1000);
-      const m = Math.floor(s / 60), sec = s % 60;
-      timer.textContent = `${m}:${String(sec).padStart(2,'0')}`;
+      timer.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
     }, 1000);
   } else {
-    clearInterval(watchTimerInterval);
+    clearInterval(watchTimerInt);
     timer.style.display = 'none';
   }
 }
 
-// ════════════════════════ MANUAL CONTROLS ════════════════════════
-let moveActive = false, zoomActive = false, focusActive = false;
-
+// ════════════════════════════════════════════════════════════
+//  MANUAL CONTROLS
+// ════════════════════════════════════════════════════════════
 function getPanSpeed()  { return parseInt(document.getElementById('panSpeed').value); }
 function getTiltSpeed() { return parseInt(document.getElementById('tiltSpeed').value); }
 function getZoomSpeed() { return parseInt(document.getElementById('zoomSpeed').value); }
 
 function startMove(direction) {
-  if (moveActive) return;
-  moveActive = true;
+  if (moveActive) return; moveActive = true;
   manual('pan_tilt', { direction, pan_speed: getPanSpeed(), tilt_speed: getTiltSpeed(), duration_ms: 5000 });
 }
-
 function stopMove() {
-  if (!moveActive) return;
-  moveActive = false;
+  if (!moveActive) return; moveActive = false;
   manual('stop', {});
 }
-
 function startZoom(direction) {
-  if (zoomActive) return;
-  zoomActive = true;
+  if (zoomActive) return; zoomActive = true;
   manual('zoom', { direction, speed: getZoomSpeed(), duration_ms: 5000 });
 }
-
 function stopZoom() {
-  if (!zoomActive) return;
-  zoomActive = false;
+  if (!zoomActive) return; zoomActive = false;
   manual('zoom', { direction: 'stop', speed: 1, duration_ms: 0 });
 }
-
 function startFocus(direction) {
-  if (focusActive) return;
-  focusActive = true;
+  if (focusActive) return; focusActive = true;
   manual('focus', { direction, speed: 4, duration_ms: 5000 });
 }
-
 function stopFocus() {
-  if (!focusActive) return;
-  focusActive = false;
+  if (!focusActive) return; focusActive = false;
   manual('focus', { direction: 'stop', speed: 1, duration_ms: 0 });
 }
 
@@ -671,18 +1380,16 @@ function setFocusMode(mode) {
 
 function setAEMode(mode) {
   manual('set_exposure_mode', { mode });
-  document.getElementById('irisGroup').style.display   = ['manual','iris'].includes(mode)    ? '' : 'none';
+  document.getElementById('irisGroup').style.display    = ['manual','iris'].includes(mode)    ? '' : 'none';
   document.getElementById('shutterGroup').style.display = ['manual','shutter'].includes(mode) ? '' : 'none';
   document.getElementById('gainGroup').style.display    = mode === 'manual' ? '' : 'none';
 }
-// Init exposure visibility
 setAEMode('auto');
 
 function setWBMode(mode) {
   manual('set_white_balance', { mode });
-  const isManual = mode === 'manual';
-  document.getElementById('rgainGroup').style.display = isManual ? '' : 'none';
-  document.getElementById('bgainGroup').style.display = isManual ? '' : 'none';
+  document.getElementById('rgainGroup').style.display = mode === 'manual' ? '' : 'none';
+  document.getElementById('bgainGroup').style.display = mode === 'manual' ? '' : 'none';
 }
 
 function toggleAutoTrack() {
@@ -692,56 +1399,46 @@ function toggleAutoTrack() {
   document.getElementById('autoTrackBtn').classList.toggle('toggle-on', autoTrackOn);
 }
 
-function updateSpeedLabel() {
-  document.getElementById('panSpeedVal').textContent  = document.getElementById('panSpeed').value;
-  document.getElementById('tiltSpeedVal').textContent = document.getElementById('tiltSpeed').value;
-}
-
-// Fire a manual command via API
 async function manual(tool, params) {
   try {
     const res  = await fetch('/api/manual', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tool, params }),
     });
     const data = await res.json();
-    addLog({
-      ts: new Date().toISOString(), tool, input: params,
-      result: data.result, ms: data.ms, ok: data.ok, source: 'manual',
-      error: data.error,
-    });
+    addLog({ ts: new Date().toISOString(), tool, input: params, result: data.result, ms: data.ms, ok: data.ok, source: 'manual', error: data.error });
   } catch (err) {
     addLog({ ts: new Date().toISOString(), tool, input: params, error: err.message, ms: 0, ok: false, source: 'manual' });
   }
 }
 
-// ════════════════════════ EMERGENCY STOP ════════════════════════
+// ════════════════════════════════════════════════════════════
+//  EMERGENCY STOP
+// ════════════════════════════════════════════════════════════
 async function emergencyStop() {
   moveActive = zoomActive = focusActive = false;
   const btn = document.getElementById('stopBtn');
-  btn.textContent = '⏹ STOPPING…';
-  btn.disabled = true;
+  btn.textContent = '⏹ STOPPING…'; btn.disabled = true;
   await fetch('/api/stop', { method: 'POST' });
-  addLog({ ts: new Date().toISOString(), tool: 'EMERGENCY STOP', input: {}, result: { url: `ptzctrl.cgi?ptzcmd&ptzstop` }, ms: 0, ok: true, source: 'manual' });
-  btn.textContent = '⏹ STOP';
-  btn.disabled = false;
+  addLog({ ts: new Date().toISOString(), tool: 'EMERGENCY STOP', input: {}, result: {}, ms: 0, ok: true, source: 'manual' });
+  btn.textContent = '⏹ STOP'; btn.disabled = false;
 }
 
-// ════════════════════════ CHAT ════════════════════════
+// ════════════════════════════════════════════════════════════
+//  CHAT
+// ════════════════════════════════════════════════════════════
 const messagesEl = document.getElementById('messages');
 
 function addMessage(role, text) {
   const div = document.createElement('div');
   div.className = `msg ${role}`;
   if (role !== 'system') {
-    const label = document.createElement('div');
-    label.className = 'mlabel';
-    label.textContent = role === 'user' ? 'You' : 'Camera AI';
-    div.appendChild(label);
+    const l = document.createElement('div'); l.className = 'mlabel';
+    l.textContent = role === 'user' ? 'You' : 'Camera AI';
+    div.appendChild(l);
   }
-  const body = document.createElement('div');
-  body.textContent = text;
-  div.appendChild(body);
+  const b = document.createElement('div'); b.textContent = text;
+  div.appendChild(b);
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return div;
@@ -749,16 +1446,14 @@ function addMessage(role, text) {
 
 function addSystemMsg(text) {
   const div = document.createElement('div');
-  div.className = 'msg system';
-  div.textContent = text;
+  div.className = 'msg system'; div.textContent = text;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
 function showTyping() {
   const div = document.createElement('div');
-  div.className = 'msg assistant';
-  div.id = 'typing';
+  div.className = 'msg assistant'; div.id = 'typing';
   const l = document.createElement('div'); l.className = 'mlabel'; l.textContent = 'Camera AI';
   const d = document.createElement('div'); d.className = 'typing';
   d.innerHTML = '<span></span><span></span><span></span>';
@@ -774,13 +1469,16 @@ async function sendMessage() {
   document.getElementById('chatInput').value = '';
   document.getElementById('sendBtn').disabled = true;
 
+  // Open chat drawer if it's not open
+  if (activeDrawer !== 'right') openDrawer('right');
+
   addMessage('user', text);
   chatHistory.push({ role: 'user', content: text });
   showTyping();
 
   try {
     const res  = await fetch('/api/chat', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: chatHistory }),
     });
     removeTyping();
@@ -792,7 +1490,6 @@ async function sendMessage() {
       addMessage('assistant', reply);
       chatHistory.push({ role: 'assistant', content: reply });
       if (data.commandLog?.length) data.commandLog.forEach(addLog);
-      // Sync active camera if AI switched it
       const switchCmd = data.commandLog?.find(e => e.tool === 'switch_camera' && e.ok);
       if (switchCmd?.input?.camera_id) selectCamera(switchCmd.input.camera_id);
     }
@@ -809,83 +1506,76 @@ document.getElementById('chatInput').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
 
-// ════════════════════════ COMMAND LOG ════════════════════════
+// ════════════════════════════════════════════════════════════
+//  COMMAND LOG
+// ════════════════════════════════════════════════════════════
 const logEl = document.getElementById('cmdLog');
 
-function clearLog() { logEl.innerHTML = '<div style="color:var(--muted);padding:4px 2px">No commands yet.</div>'; }
+function clearLog() { logEl.innerHTML = '<div style="color:var(--muted);padding:6px">No commands yet.</div>'; }
 
 function addLog(entry) {
-  const ph = logEl.querySelector('div[style]');
-  if (ph) ph.remove();
-
+  const ph = logEl.querySelector('div[style]'); if (ph) ph.remove();
   const div = document.createElement('div');
   const isWatch  = entry.source === 'watch';
   const isManual = entry.source === 'manual';
   div.className = `log-entry ${entry.ok ? 'ok' : 'fail'} ${isWatch ? 'watch-entry' : ''} ${isManual ? 'manual-entry' : ''}`;
 
-  // Top row: tool name + timestamp
-  const top = document.createElement('div');
-  top.className = 'log-top';
-  const name = document.createElement('span');
-  name.className = `log-tool ${isWatch ? 'watch-tool' : ''} ${isManual ? 'manual-tool' : ''}`;
-  name.textContent = (isWatch ? '👁 ' : isManual ? '🎛 ' : '🤖 ') + entry.tool;
-  const ts = document.createElement('span');
-  ts.className = 'log-ts';
+  const top = document.createElement('div'); top.className = 'log-top';
+  const nm  = document.createElement('span');
+  nm.className = `log-tool ${isWatch ? 'watch-tool' : ''} ${isManual ? 'manual-tool' : ''}`;
+  nm.textContent = (isWatch ? '👁 ' : isManual ? '🎛 ' : '🤖 ') + entry.tool;
+  const ts = document.createElement('span'); ts.className = 'log-ts';
   ts.textContent = new Date(entry.ts).toLocaleTimeString();
-  top.appendChild(name); top.appendChild(ts);
-  div.appendChild(top);
+  top.appendChild(nm); top.appendChild(ts); div.appendChild(top);
 
-  // URL
   const url = entry.result?.url || entry.result?.cmd;
   if (url) {
-    const u = document.createElement('div');
-    u.className = 'log-url';
+    const u = document.createElement('div'); u.className = 'log-url';
     u.textContent = url.replace('http://192.168.100.', 'http://…').replace('visca://192.168.100.', 'visca://…');
     div.appendChild(u);
   }
 
-  // Params
   const params = Object.entries(entry.input || {}).map(([k,v]) => `${k}=${JSON.stringify(v)}`).join(' ');
-  if (params) {
-    const p = document.createElement('div');
-    p.className = 'log-params';
-    p.textContent = params;
-    div.appendChild(p);
-  }
+  if (params) { const p = document.createElement('div'); p.className = 'log-params'; p.textContent = params; div.appendChild(p); }
 
-  // Status
   const st = document.createElement('span');
   st.className = `log-status ${entry.ok ? 'ok' : 'fail'}`;
   st.textContent = entry.ok
     ? `${entry.result?.status ? 'HTTP ' + entry.result.status : 'OK'}  ${entry.ms}ms`
-    : `ERR: ${(entry.error || 'unknown').slice(0,60)}`;
+    : `ERR: ${(entry.error || 'unknown').slice(0, 60)}`;
   div.appendChild(st);
-
   logEl.prepend(div);
 }
 
 function addReasoningLog(ts, text) {
-  const ph = logEl.querySelector('div[style]');
-  if (ph) ph.remove();
-
-  const div = document.createElement('div');
-  div.className = 'log-entry watch-entry ok';
-
+  const ph = logEl.querySelector('div[style]'); if (ph) ph.remove();
+  const div = document.createElement('div'); div.className = 'log-entry watch-entry ok';
   const top = document.createElement('div'); top.className = 'log-top';
-  const name = document.createElement('span'); name.className = 'log-tool watch-tool'; name.textContent = '💭 reasoning';
-  const t = document.createElement('span'); t.className = 'log-ts'; t.textContent = new Date(ts).toLocaleTimeString();
-  top.appendChild(name); top.appendChild(t);
-  div.appendChild(top);
-
+  const nm = document.createElement('span'); nm.className = 'log-tool watch-tool'; nm.textContent = '💭 reasoning';
+  const t  = document.createElement('span'); t.className = 'log-ts'; t.textContent = new Date(ts).toLocaleTimeString();
+  top.appendChild(nm); top.appendChild(t); div.appendChild(top);
   const r = document.createElement('div'); r.className = 'log-reasoning'; r.textContent = text;
   div.appendChild(r);
-
   logEl.prepend(div);
 }
 
-// ════════════════════════ INIT ════════════════════════
+// ════════════════════════════════════════════════════════════
+//  KEYBOARD SHORTCUT
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  // Escape closes drawers
+  if (e.key === 'Escape') closeAllDrawers();
+  // Ctrl+/ opens chat
+  if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); openDrawer('right'); document.getElementById('chatInput').focus(); }
+});
+
+// ════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════
 connectSSE();
 initPreviews();
+pollStatus();
+setInterval(pollStatus, 3_000);
 </script>
 </body>
 </html>

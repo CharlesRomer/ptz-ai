@@ -7,6 +7,8 @@ import { visca }        from './lib/visca.js';
 import { handlers, tools, clearAllTimers, cancelActiveSequence } from './lib/tools.js';
 import { startWatch, stopWatch, addSSEClient, isWatching } from './lib/watch.js';
 import { getStream, stopAllStreams } from './lib/streams.js';
+import { initATEM, getATEMStatus, CAM_ATEM_INPUTS } from './lib/atem.js';
+import { initOBS, getOBSStatus } from './lib/obs.js';
 
 const app       = express();
 const PORT      = process.env.PORT || 3000;
@@ -297,9 +299,41 @@ app.get('/api/watch/status', (req, res) => {
   res.json({ watching: isWatching() });
 });
 
+// ── Aggregated status endpoint (cameras + ATEM + OBS) ────────────────────────
+app.get('/api/status', async (req, res) => {
+  const cameras = getCameras();
+
+  const camStatus = await Promise.all(cameras.map(async (cam) => {
+    const t0 = Date.now();
+    try {
+      const r = await fetch(`http://${cam.ip}/cgi-bin/param.cgi?get_device_conf`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      return { id: cam.id, ip: cam.ip, online: r.ok, latency: Date.now() - t0 };
+    } catch {
+      return { id: cam.id, ip: cam.ip, online: false, latency: null };
+    }
+  }));
+
+  res.json({
+    cameras: camStatus,
+    ateminputs: CAM_ATEM_INPUTS,
+    atem: getATEMStatus(),
+    obs: getOBSStatus(),
+    system: {
+      uptime: Math.floor(process.uptime()),
+      watching: isWatching(),
+      activeCamera: getActiveId(),
+    },
+  });
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 process.on('SIGTERM', () => { stopAllStreams(); process.exit(0); });
 process.on('SIGINT',  () => { stopAllStreams(); process.exit(0); });
+
+initATEM();
+initOBS().catch(err => console.error('[OBS]  Init error:', err.message));
 
 app.listen(PORT, () => {
   const cam = getActive();
