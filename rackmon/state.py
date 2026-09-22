@@ -74,9 +74,11 @@ class StateStore:
             interval = self._intervals.get(key)
             updated = entry.get("updated_at", now)
             if interval and now - updated > STALE_FACTOR * interval:
+                # A hung-while-ok poller becomes a warn; a section already in
+                # error keeps its real message (it's mid retry-backoff).
                 if entry.get("status") == OK:
                     entry["status"] = WARN
-                entry["message"] = f"No update for {int(now - updated)}s"
+                    entry["message"] = f"No update for {int(now - updated)}s"
                 entry["stale"] = True
             out[key] = entry
         meta = dict(out.get("meta", {}))
