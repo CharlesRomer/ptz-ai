@@ -9,8 +9,8 @@ $root   = "C:\rackmon"
 $python = "$root\.venv\Scripts\python.exe"
 $nssm   = "$root\nssm.exe"
 
-if (-not (Test-Path $nssm))   { Write-Error "nssm.exe not found at $nssm — see comments above"; exit 1 }
-if (-not (Test-Path $python)) { Write-Error "venv python not found at $python — run the setup steps in docs\SETUP.md first"; exit 1 }
+if (-not (Test-Path $nssm))   { Write-Error "nssm.exe not found at $nssm - see comments above"; exit 1 }
+if (-not (Test-Path $python)) { Write-Error "venv python not found at $python - run the setup steps in docs\SETUP.md first"; exit 1 }
 
 New-Item -ItemType Directory -Force -Path "$root\logs" | Out-Null
 

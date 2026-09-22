@@ -4,11 +4,11 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\windows\setup.ps1
 #
 # It creates the Python environment, installs rackmon, and puts a starter
-# config in place. It does NOT need git — download the project as a ZIP.
+# config in place. It does NOT need git - download the project as a ZIP.
 
 $root = "C:\rackmon"
 if ((Get-Location).Path -ne $root) {
-    Write-Host "NOTE: expected to run from $root — paths in the other scripts assume it." -ForegroundColor Yellow
+    Write-Host "NOTE: expected to run from $root - paths in the other scripts assume it." -ForegroundColor Yellow
 }
 
 # 1. find Python 3.11+
@@ -27,19 +27,19 @@ if ([version]$ver -lt [version]"3.11") {
 
 # 2. virtual environment + install
 if (-not (Test-Path ".venv")) {
-    Write-Host "Creating virtual environment…"
+    Write-Host "Creating virtual environment..."
     python -m venv .venv
 }
-Write-Host "Installing rackmon and its libraries (takes a minute)…"
+Write-Host "Installing rackmon and its libraries (takes a minute)..."
 & .venv\Scripts\pip install -q -e .
-if ($LASTEXITCODE -ne 0) { Write-Error "pip install failed — see output above."; exit 1 }
+if ($LASTEXITCODE -ne 0) { Write-Error "pip install failed - see output above."; exit 1 }
 
 # 3. starter config
 if (-not (Test-Path "config\config.yaml")) {
     Copy-Item "config\config.example.yaml" "config\config.yaml"
     Write-Host "Created config\config.yaml from the example." -ForegroundColor Green
 } else {
-    Write-Host "config\config.yaml already exists — leaving it alone."
+    Write-Host "config\config.yaml already exists - leaving it alone."
 }
 
 Write-Host ""
