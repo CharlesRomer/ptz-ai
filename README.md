@@ -45,7 +45,7 @@ Run the tests with `.venv/bin/python -m pytest`.
 
 | Device | Protocol / library | What we read |
 |---|---|---|
-| ATEM Mini Extreme ISO G2 | ATEM network protocol via [PyATEMMax](https://clvlabs.github.io/PyATEMMax/) | connection, program/preview input, per-input tally, input names; stream/record state where the firmware exposes it |
+| ATEM Mini Extreme ISO G2 | built-in minimal ATEM protocol client (`rackmon/atemproto.py`) | connection, program/preview input, per-input tally, input names; stream/record state where the firmware exposes it |
 | OBS (same PC) | [obs-websocket v5](https://github.com/obsproject/obs-websocket) via `simpleobsws` | stream up/down, bitrate, dropped frames, encoder/render load, record state — **OBS is the authoritative "are we live" source** — plus PROGRAM/PREVIEW images for the multiview (`GetSourceScreenshot`) |
 | PoE switch | SNMP v2c via `pysnmp` | per-port link status (`ifOperStatus`), PoE delivering status (standard POWER-ETHERNET-MIB), per-port watts (vendor OID from config) |
 | PTZ cameras | RTSP substream decoded by `ffmpeg` (or HTTP snapshot URL) + ping | live thumbnails for the multiview; reachability |
@@ -74,10 +74,11 @@ tests/              pytest suite (runs with zero hardware)
 
 ## Known limitations
 
-- **ATEM stream/record tiles may show "unknown"** — PyATEMMax's coverage of
-  the newest ATEM firmware status commands varies. OBS (which does the actual
+- **ATEM stream/record tiles may show "unknown"** until the switcher sends
+  those status commands (varies by firmware). OBS (which does the actual
   YouTube streaming) is the reliable source; verify the ATEM ISO-record tile
-  on your hardware during commissioning.
+  on your hardware during commissioning. (`python -m rackmon.tools.atemtest
+  <ip> --dump` shows exactly what the switcher sends.)
 - **Per-port PoE wattage needs a vendor OID** — 10 minutes with
   `docs/SNMP.md` + the bundled scanner. Until then you still get link + PoE
   on/off status.
