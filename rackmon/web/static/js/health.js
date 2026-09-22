@@ -37,9 +37,9 @@
     }
     tiles.push(tile(sys.status, 'Mini PC', sysDetail));
 
-    // PoE switch ports
-    const sw = s.switch || {};
-    if (sw.ports && sw.ports.length && !sw.stale) {
+    // PoE switch ports (tile omitted entirely when SNMP isn't configured)
+    const sw = s.switch;
+    if (sw && sw.ports && sw.ports.length && !sw.stale) {
       sw.ports.forEach(function (p) {
         tiles.push(tile(p.ok ? 'ok' : 'error',
           'Port ' + p.port + ' — ' + p.label, p.detail));
@@ -47,7 +47,7 @@
       if (sw.status !== 'ok') {
         tiles.push(tile(sw.status, 'PoE Switch', sw.message || ''));
       }
-    } else {
+    } else if (sw) {
       tiles.push(tile(sw.status, 'PoE Switch', sw.message || 'no data'));
     }
 
