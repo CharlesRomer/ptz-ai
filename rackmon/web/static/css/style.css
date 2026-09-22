@@ -1,0 +1,170 @@
+/* Dark theme sized for 7" 1024x600 touchscreens viewed at arm's length. */
+
+:root {
+  --bg: #0e1116;
+  --panel: #1a1f27;
+  --text: #e8eaed;
+  --muted: #9aa0a6;
+  --ok: #1db954;
+  --warn: #e8b93e;
+  --error: #e5484d;
+  --unknown: #5f6672;
+  --live: #ff2b2b;
+  --next: #2bd96a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, "Segoe UI", sans-serif;
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
+}
+
+/* ---------- header ---------- */
+header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 16px; height: 56px;
+}
+header h1 { font-size: 20px; font-weight: 600; color: var(--muted); }
+#overall {
+  font-size: 22px; font-weight: 700; padding: 4px 16px; border-radius: 8px;
+}
+#overall.ok    { background: var(--ok);    color: #04220f; }
+#overall.warn  { background: var(--warn);  color: #2a2005; }
+#overall.error { background: var(--error); color: #fff; }
+#clock { margin-left: auto; font-size: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.offline-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 99;
+  background: var(--error); color: #fff; text-align: center;
+  font-size: 22px; font-weight: 700; padding: 14px;
+}
+
+/* ---------- screen 1: health tiles ---------- */
+#tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px; padding: 0 12px 12px;
+  height: calc(100% - 56px); overflow-y: auto;
+  align-content: start;
+}
+.tile {
+  border-radius: 10px; padding: 12px; min-height: 88px;
+  background: var(--panel); border-left: 10px solid var(--unknown);
+}
+.tile.ok    { border-left-color: var(--ok);    background: #12281a; }
+.tile.warn  { border-left-color: var(--warn);  background: #2b2410; }
+.tile.error { border-left-color: var(--error); background: #331416; }
+.tile-name   { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.tile-detail { font-size: 14px; color: var(--muted); line-height: 1.35; }
+.tile.error .tile-detail { color: #ffb4b6; }
+
+/* ---------- screen 2: multiview ---------- */
+#mvgrid {
+  display: grid; gap: 8px; padding: 8px;
+  height: 100%; width: 100%;
+}
+.cam {
+  position: relative; background: #000; border-radius: 6px;
+  border: 5px solid #222; overflow: hidden;
+}
+.cam img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.cam.live { border-color: var(--live); box-shadow: 0 0 18px var(--live); }
+.cam.next { border-color: var(--next); }
+.cam-label {
+  position: absolute; left: 0; bottom: 0;
+  background: rgba(0,0,0,.65); color: #fff;
+  font-size: 15px; font-weight: 600; padding: 3px 10px; border-radius: 0 6px 0 0;
+}
+.cam.live .cam-label { background: var(--live); }
+.nosignal {
+  position: absolute; inset: 0; display: none;
+  align-items: center; justify-content: center;
+  background: rgba(10,10,10,.75); color: var(--error);
+  font-size: 24px; font-weight: 800; letter-spacing: 2px;
+}
+.cam.stale .nosignal { display: flex; }
+#tallybanner {
+  position: fixed; bottom: 0; left: 0; right: 0; display: none;
+  background: var(--warn); color: #2a2005; text-align: center;
+  font-weight: 700; padding: 6px; font-size: 16px;
+}
+
+/* ---------- screen 3 ---------- */
+.mode-toggle {
+  position: fixed; top: 8px; right: 12px; z-index: 10;
+  font-size: 18px; font-weight: 700; padding: 12px 20px;
+  border: none; border-radius: 10px; background: #2c3442; color: var(--text);
+}
+.view { padding: 0 16px 16px; height: calc(100% - 56px); overflow-y: auto; }
+
+.badges { display: flex; gap: 12px; margin: 6px 0 14px; flex-wrap: wrap; }
+.badge {
+  font-size: 26px; font-weight: 800; padding: 10px 22px; border-radius: 10px;
+  background: var(--unknown); color: #fff;
+}
+.badge.on   { background: var(--live); }
+.badge.ok   { background: var(--ok); color: #04220f; }
+.badge.off  { background: #2c3442; color: var(--muted); }
+.badge.warn { background: var(--warn); color: #2a2005; }
+
+.statgrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px; margin-bottom: 14px;
+}
+.stat { background: var(--panel); border-radius: 10px; padding: 12px; }
+.stat .v { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stat .v.warn { color: var(--warn); }
+.stat .v.error { color: var(--error); }
+.stat .k { font-size: 13px; color: var(--muted); margin-top: 2px; }
+#spark { width: 100%; height: 90px; background: var(--panel); border-radius: 10px; }
+.ytline { margin-top: 10px; font-size: 16px; color: var(--muted); }
+
+/* checklist */
+#ck-progress { display: flex; gap: 8px; margin: 4px 0 16px; }
+.dot { width: 16px; height: 16px; border-radius: 50%; background: #2c3442; }
+.dot.done { background: var(--ok); }
+.dot.current { background: var(--warn); }
+.ck-step {
+  background: var(--panel); border-radius: 14px; padding: 22px;
+  margin-bottom: 14px;
+}
+.ck-step h2 { font-size: 28px; margin-bottom: 8px; }
+.ck-step p  { font-size: 18px; color: var(--muted); }
+.chip {
+  display: inline-block; margin-top: 12px; padding: 8px 16px;
+  border-radius: 999px; font-size: 16px; font-weight: 700;
+  background: #2c3442; color: var(--muted);
+}
+.chip.pass { background: var(--ok); color: #04220f; }
+.ck-buttons { display: flex; gap: 12px; }
+.ck-buttons button {
+  font-size: 22px; font-weight: 800; padding: 18px 28px;
+  border: none; border-radius: 12px; color: var(--text); background: #2c3442;
+  min-width: 120px; min-height: 64px;
+}
+.ck-buttons button.primary { background: var(--ok); color: #04220f; flex: 1; }
+.ck-done { text-align: center; padding: 40px 0; }
+.ck-done h2 { font-size: 34px; color: var(--ok); margin-bottom: 16px; }
+
+/* ---------- index / debug ---------- */
+.linklist { padding: 20px; }
+.linklist a {
+  display: block; background: var(--panel); color: var(--text);
+  text-decoration: none; font-size: 22px; font-weight: 700;
+  padding: 18px 22px; border-radius: 12px; margin-bottom: 12px;
+}
+.dbg-buttons { padding: 16px; display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.dbg-buttons button {
+  font-size: 17px; font-weight: 700; padding: 16px; border-radius: 10px;
+  border: none; background: var(--panel); color: var(--text);
+}
+.dbg-buttons button.active { background: var(--error); color: #fff; }
+pre.statejson { margin: 16px; padding: 12px; background: #000; color: #8f8;
+  font-size: 11px; border-radius: 8px; max-height: 45vh; overflow: auto;
+  user-select: text; }

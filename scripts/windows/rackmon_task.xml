@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!--
+  Task Scheduler alternative to the NSSM service (no third-party tools).
+  Import: Task Scheduler -> Action -> Import Task... -> pick this file.
+  Then edit the Action if you installed rackmon somewhere other than C:\rackmon.
+  Runs at startup, restarts up to 999 times, 1 minute apart, if it dies.
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>RackMon livestream dashboards backend</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <BootTrigger>
+      <Enabled>true</Enabled>
+      <Delay>PT20S</Delay>
+    </BootTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>S4U</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <RestartOnFailure>
+      <Interval>PT1M</Interval>
+      <Count>999</Count>
+    </RestartOnFailure>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\rackmon\.venv\Scripts\python.exe</Command>
+      <Arguments>-m rackmon --config C:\rackmon\config\config.yaml</Arguments>
+      <WorkingDirectory>C:\rackmon</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>

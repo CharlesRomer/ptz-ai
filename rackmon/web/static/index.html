@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>rackmon</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header><h1>RACKMON</h1><div id="clock"></div></header>
+  <div class="linklist">
+    <a href="/screen1">Screen 1 — System Health</a>
+    <a href="/screen2">Screen 2 — Tally Multiview</a>
+    <a href="/screen3">Screen 3 — Stream Health / Checklist</a>
+    <a href="/debug" id="dbglink" style="display:none">Debug — failure toggles (mock mode)</a>
+  </div>
+  <div class="ytline" id="info" style="padding:0 20px"></div>
+  <script src="/static/js/bus.js"></script>
+  <script>
+    RackBus.startClock();
+    fetch('/api/state').then(r => r.json()).then(s => {
+      const meta = s.meta || {};
+      document.getElementById('info').textContent =
+        (meta.app || 'rackmon') + (meta.mock ? ' — MOCK MODE (fake hardware)' : '');
+      if (meta.mock) document.getElementById('dbglink').style.display = 'block';
+    });
+  </script>
+</body>
+</html>

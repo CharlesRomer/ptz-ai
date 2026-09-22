@@ -1,0 +1,139 @@
+# ============================================================
+# rackmon configuration
+# Copy this file to config/config.yaml and fill in YOUR values.
+# Everything you need to gather is listed in docs/GATHER-FIRST.md
+# ============================================================
+
+# Where the dashboards are served. Leave host as 127.0.0.1 (localhost only —
+# the kiosks run on this same PC, and there is no login screen by design).
+server:
+  host: 127.0.0.1
+  port: 8080
+
+# true = fake hardware demo mode (same as running with --mock)
+mock: false
+
+# ---------- ATEM Mini Extreme ISO G2 ----------
+# Find the IP in ATEM Setup utility (connect via USB) or your router's
+# client list. Give it a DHCP reservation so it never changes!
+atem:
+  ip: 192.168.1.240
+  poll_interval: 2
+
+# ---------- OBS (runs on this same PC) ----------
+# In OBS: Tools -> WebSocket Server Settings -> Enable, note the port
+# and click "Show Connect Info" for the password.
+obs:
+  host: 127.0.0.1
+  port: 4455
+  password: "CHANGE_ME"
+  poll_interval: 2
+
+# ---------- PoE switch ----------
+switch:
+  ip: 192.168.1.2
+  snmp_community: "public"      # set when you enable SNMP on the switch
+  poll_interval: 5
+
+  # Per-port POWER DRAW (watts) is the reliable "camera is actually on"
+  # signal, but the OID (SNMP address) for it differs per switch vendor.
+  # Leave null to start — you still get link status + standard PoE on/off.
+  # Then follow docs/SNMP.md to find your switch's power OID and paste it
+  # here with {port} where the port number goes. Known examples (VERIFY
+  # with the snmpscan tool before trusting them):
+  #   Netgear (GS3xxEP etc):  "1.3.6.1.4.1.4526.11.15.1.12.1.1.9.{port}"  scale 0.001
+  #   TP-Link (TL-SG2xxxP):   "1.3.6.1.4.1.11863.6.56.1.1.2.1.1.6.{port}" scale 0.1
+  #   Standard MIB (some):    "1.3.6.1.2.1.105.1.1.1.10.1.{port}"          scale 1.0
+  poe_power_oid_template: null
+  poe_power_scale: 0.001        # multiply the raw SNMP number by this to get watts
+  poe_min_watts: 2.0            # below this the camera counts as NOT powered
+  poe_group_index: 1            # almost always 1; leave it
+
+  # One entry per switch port you care about. `port` is the number printed
+  # on the switch. expect_poe: true = a camera (red tile if no power),
+  # false = just a network device (red tile only if link is down).
+  ports:
+    - {port: 1, label: "Cam 1 (Stage Left)",  expect_poe: true}
+    - {port: 2, label: "Cam 2 (Center)",      expect_poe: true}
+    - {port: 3, label: "Cam 3 (Stage Right)", expect_poe: true}
+    - {port: 5, label: "Uplink (internet)",   expect_poe: false}
+    - {port: 6, label: "WiFi extender",       expect_poe: false}
+    - {port: 7, label: "Mini PC",             expect_poe: false}
+
+# ---------- Reachability checks (simple pings) ----------
+ping_targets:
+  - {label: "WiFi Extender",   ip: 192.168.1.3}
+  - {label: "Building Router", ip: 192.168.1.1}
+  - {label: "Cam 1",           ip: 192.168.1.11}
+  - {label: "Cam 2",           ip: 192.168.1.12}
+  - {label: "Cam 3",           ip: 192.168.1.13}
+ping_interval: 5
+
+# ---------- This mini PC ----------
+system:
+  disks: ["C:\\"]               # add your recording drive too, e.g. ["C:\\", "D:\\"]
+  disk_warn_pct: 80
+  disk_error_pct: 95
+  cpu_warn_pct: 85
+  poll_interval: 3
+
+# ---------- Screen 2 multiview sources (shown in this order) ----------
+# mode:
+#   rtsp     — pull the camera's RTSP substream through ffmpeg (needs ffmpeg.exe)
+#   snapshot — poll the camera's HTTP snapshot URL (if your cameras have one)
+#   obs      — screenshot an OBS source/scene (used for PROGRAM/PREVIEW)
+#   mock     — animated test card (for testing)
+# atem_input = which ATEM input this camera is plugged into (drives the
+# red tally border). PGM/PVW tiles have no atem_input.
+#
+# IMPORTANT: use each camera's LOW-RES SUBSTREAM in rtsp_url (usually
+# "stream2" or "subtype=1"), not the full-res feed — the multiview only
+# needs small images and the full feed wastes CPU needed by OBS.
+cameras:
+  - id: cam1
+    label: "Cam 1"
+    mode: rtsp
+    rtsp_url: "rtsp://admin:PASSWORD@192.168.1.11:554/stream2"
+    atem_input: 1
+    fps: 4
+  - id: cam2
+    label: "Cam 2"
+    mode: rtsp
+    rtsp_url: "rtsp://admin:PASSWORD@192.168.1.12:554/stream2"
+    atem_input: 2
+    fps: 4
+  - id: cam3
+    label: "Cam 3"
+    mode: rtsp
+    rtsp_url: "rtsp://admin:PASSWORD@192.168.1.13:554/stream2"
+    atem_input: 3
+    fps: 4
+  # PROGRAM and PREVIEW come from OBS (the ATEM has no network video output,
+  # but OBS already sees everything). Names must match sources/scenes in OBS.
+  - id: pgm
+    label: "PROGRAM"
+    mode: obs
+    obs_source: "Program"
+    fps: 3
+  - id: pvw
+    label: "PREVIEW"
+    mode: obs
+    obs_source: "Preview"
+    fps: 3
+
+video:
+  # Windows: download ffmpeg (see docs/SETUP.md) and put the full path here.
+  ffmpeg_path: "C:\\rackmon\\ffmpeg\\bin\\ffmpeg.exe"
+  jpeg_width: 480               # multiview tile width in pixels
+  stale_after: 10               # seconds without a frame before NO SIGNAL shows
+
+# ---------- YouTube confirmation (OPTIONAL — leave nulls to disable) ----------
+# Only confirms PUBLIC live streams; unlisted streams won't show up.
+# See docs/SETUP.md for how to get a free API key.
+youtube:
+  api_key: null
+  channel_id: null
+  poll_interval: 90
+
+# Startup checklist steps live in a separate editable file:
+checklist_file: "config/checklist.yaml"

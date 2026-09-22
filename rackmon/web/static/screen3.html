@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stream Health / Checklist</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header>
+    <h1 id="s3title">STREAM</h1>
+    <div id="clock"></div>
+  </header>
+  <button id="toggle" class="mode-toggle">📋 Checklist</button>
+
+  <div id="view-stream" class="view">
+    <div class="badges">
+      <div class="badge off" id="b-live">…</div>
+      <div class="badge off" id="b-rec">…</div>
+      <div class="badge off" id="b-yt" style="display:none">…</div>
+    </div>
+    <div class="statgrid">
+      <div class="stat"><div class="v" id="s-time">—</div><div class="k">stream time</div></div>
+      <div class="stat"><div class="v" id="s-kbps">—</div><div class="k">bitrate (kbps)</div></div>
+      <div class="stat"><div class="v" id="s-drop">—</div><div class="k">dropped frames</div></div>
+      <div class="stat"><div class="v" id="s-cpu">—</div><div class="k">OBS CPU</div></div>
+      <div class="stat"><div class="v" id="s-fps">—</div><div class="k">output FPS</div></div>
+      <div class="stat"><div class="v" id="s-lag">—</div><div class="k">render lag</div></div>
+    </div>
+    <canvas id="spark"></canvas>
+    <div class="ytline" id="obsline"></div>
+    <div class="ytline" id="ytline"></div>
+    <div class="ytline" id="atemline"></div>
+  </div>
+
+  <div id="view-checklist" class="view" style="display:none">
+    <div id="ck-progress"></div>
+    <div id="ck-body"></div>
+  </div>
+
+  <script src="/static/js/bus.js"></script>
+  <script src="/static/js/screen3.js"></script>
+</body>
+</html>

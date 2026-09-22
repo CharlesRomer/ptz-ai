@@ -1,0 +1,47 @@
+# Startup checklist shown on Screen 3 (checklist mode).
+# Edit freely — plain text steps for volunteers, one at a time.
+#
+# A step MAY have an auto_check so the screen shows a live
+# "✓ Detected automatically" chip when the system can verify it:
+#   auto_check: {path: "atem.status", equals: "ok"}
+#   auto_check: {path: "obs.stream.active", equals: true}
+#   auto_check: {path: "switch.ports", all: {field: "ok", equals: true}}
+# path = dot-path into the live state (see /api/state in a browser).
+
+steps:
+  - id: power
+    title: "Turn on the rack power strip"
+    detail: "The main switch on the rack. Lights should come on across all the gear."
+
+  - id: switch_up
+    title: "Wait for the network switch to finish booting"
+    detail: "Give it about 30 seconds. Screen 1 (left) will start filling in."
+    auto_check: {path: "switch.status", equals: "ok"}
+
+  - id: cams_powered
+    title: "Check the cameras are powering up"
+    detail: "Each camera does a little dance as it boots. On Screen 1, every camera port should turn green."
+    auto_check: {path: "switch.ports", all: {field: "ok", equals: true}}
+
+  - id: atem_up
+    title: "Confirm the ATEM tile is green on Screen 1"
+    detail: "If it stays red for over a minute, turn the ATEM off and on."
+    auto_check: {path: "atem.status", equals: "ok"}
+
+  - id: multiview
+    title: "Look at Screen 2 — you should see all the cameras"
+    detail: "Every box shows a picture. A box saying NO SIGNAL means that camera isn't ready."
+
+  - id: obs_open
+    title: "Make sure OBS is open on the streaming PC"
+    detail: "The OBS tile on Screen 1 should be green."
+    auto_check: {path: "obs.status", equals: "ok"}
+
+  - id: start_stream
+    title: "In OBS, click 'Start Streaming' (bottom right)"
+    detail: "Screen 3 (this screen) will show LIVE when it's working."
+    auto_check: {path: "obs.stream.active", equals: true}
+
+  - id: verify
+    title: "Flip this screen to 'Stream health' and check the numbers"
+    detail: "LIVE badge on, bitrate steady, dropped frames near 0%. You're done — great job!"

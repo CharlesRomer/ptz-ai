@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>rackmon debug</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header><h1>DEBUG — FAILURE TOGGLES</h1><div id="clock"></div></header>
+  <div class="dbg-buttons" id="buttons"></div>
+  <pre class="statejson" id="statejson"></pre>
+  <script src="/static/js/bus.js"></script>
+  <script>
+    RackBus.startClock();
+    let labels = null;
+
+    function renderButtons(flags) {
+      document.getElementById('buttons').innerHTML =
+        Object.keys(flags).map(f =>
+          '<button class="' + (flags[f] ? 'active' : '') + '" ' +
+          'onclick="toggle(\'' + f + '\')">' +
+          (labels[f] || f) + (flags[f] ? ' — ON' : '') + '</button>'
+        ).join('');
+    }
+
+    function toggle(flag) {
+      fetch('/api/debug/toggle/' + flag, { method: 'POST' }).then(refresh);
+    }
+
+    function refresh() {
+      fetch('/api/debug/flags').then(r => {
+        if (!r.ok) throw new Error('not mock mode');
+        return r.json();
+      }).then(d => {
+        labels = d.labels;
+        renderButtons(d.flags);
+      }).catch(() => {
+        document.getElementById('buttons').innerHTML =
+          '<p style="padding:16px">Debug toggles are only available in mock mode ' +
+          '(run with <code>--mock</code>).</p>';
+      });
+    }
+
+    refresh();
+    RackBus.connect(s => {
+      document.getElementById('statejson').textContent = JSON.stringify(s, null, 1);
+      if (s.debug_flags && labels) renderButtons(s.debug_flags);
+    });
+  </script>
+</body>
+</html>
