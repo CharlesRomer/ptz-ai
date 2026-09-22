@@ -3,11 +3,12 @@
 Work through [GATHER-FIRST.md](GATHER-FIRST.md) before starting. Every step
 here assumes you have those IPs and passwords written down.
 
-> **Doing the setup itself needs a keyboard, mouse and one of the screens (or
-> a temporary monitor) plugged into the mini PC.** Once you finish this guide,
-> the PC never needs them again — it boots straight into the dashboards.
-> Alternative: enable Remote Desktop on the mini PC (Settings → System →
-> Remote Desktop) and do all of this from another computer.
+> **You only ever need a keyboard/monitor on the mini PC once** — to get it
+> on the network and install a remote-control tool. After that, do everything
+> (including all of this guide) from your Mac: see
+> [Controlling the mini PC from your Mac](#controlling-the-mini-pc-from-your-mac)
+> at the bottom. Once the guide is done, the PC boots straight into the
+> dashboards with nothing attached but power and network.
 
 ## 0. Get the code onto the mini PC (over the web)
 
@@ -176,3 +177,39 @@ Isolate one thing at a time, in this order:
    (unplug a camera — its tile must go red within ~15 seconds).
 8. Pull the power on the whole rack, restore it, and confirm everything —
    service, kiosks, OBS — comes back without touching a keyboard.
+
+## Controlling the mini PC from your Mac
+
+There is no useful direct cable for this — a USB-C cable between a Mac and a
+PC can't carry keyboard/mouse control (both machines are USB "hosts").
+The neat way is remote control over the network, and since the mini PC and
+your Mac can both reach the internet, it works from anywhere.
+
+**Recommended: Chrome Remote Desktop** (free, and the right choice for a
+kiosk machine — see the warning below):
+
+1. One time only, plug any monitor/TV + keyboard into the GMKtec (or use one
+   of the 7" touchscreens with the Windows on-screen keyboard). Get it on the
+   network, install Chrome, go to https://remotedesktop.google.com/access,
+   sign in with a Google account and click **Set up remote access** (installs
+   a small host program; give the PC a name and a PIN).
+2. On your Mac, open the same URL in any browser, sign in with the same
+   account → click the PC's name → enter the PIN. Full screen-and-keyboard
+   control, from anywhere, forever. Unplug the keyboard and monitor.
+
+You'll see exactly what the rack screens show (the three kiosks), and when
+you disconnect, the screens stay as they were — which is what you want.
+
+**Why not Microsoft Remote Desktop?** It works (Windows *Pro* only, plus the
+free "Windows App" on the Mac App Store), but RDP takes over the console: while
+you're connected — and after you disconnect — the physical screens show the
+Windows lock screen instead of the dashboards, until someone logs in locally.
+On a kiosk box that's a trap. If you do use RDP, get the screens back by
+running this in the remote session just before disconnecting:
+`tscon %sessionname% /dest:console`
+
+**Handy extra:** you can open the dashboards themselves from your Mac without
+any remote-control tool. In `config\config.yaml` set `server.host: 0.0.0.0`,
+restart the service, and browse to `http://<mini-pc-ip>:8080/screen1` from
+anything on the same network. (This exposes the dashboards — which have no
+login — to your local network only; fine for a rack LAN, just know it's on.)
