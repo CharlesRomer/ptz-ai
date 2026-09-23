@@ -15,8 +15,8 @@ timeout /t 20 /nobreak >nul
 set CHROME="C:\Program Files\Google\Chrome\Application\chrome.exe"
 set FLAGS=--kiosk --noerrdialogs --disable-session-crashed-bubble --disable-infobars --autoplay-policy=no-user-gesture-required
 
-start "" %CHROME% %FLAGS% --user-data-dir=C:\rackmon\kiosk1 --window-position=1920,0 --app=http://localhost:8080/screen1
+start "" %CHROME% %FLAGS% --user-data-dir=C:\rackmon\kiosk1 --window-position=0,0 --app=http://localhost:8080/screen1
 timeout /t 3 /nobreak >nul
-start "" %CHROME% %FLAGS% --user-data-dir=C:\rackmon\kiosk2 --window-position=2944,0 --app=http://localhost:8080/screen2
+start "" %CHROME% %FLAGS% --user-data-dir=C:\rackmon\kiosk2 --window-position=1024,0 --app=http://localhost:8080/screen2
 timeout /t 3 /nobreak >nul
-start "" %CHROME% %FLAGS% --user-data-dir=C:\rackmon\kiosk3 --window-position=3968,0 --app=http://localhost:8080/screen3
+start "" %CHROME% %FLAGS% --user-data-dir=C:\rackmon\kiosk3 --window-position=2048,0 --app=http://localhost:8080/screen3

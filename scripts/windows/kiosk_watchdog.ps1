@@ -8,9 +8,9 @@ $flags  = "--kiosk --noerrdialogs --disable-session-crashed-bubble --disable-inf
 
 # Keep these in sync with launch_kiosks.bat
 $kiosks = @(
-    @{ dir = "C:\rackmon\kiosk1"; pos = "1920,0"; url = "http://localhost:8080/screen1" },
-    @{ dir = "C:\rackmon\kiosk2"; pos = "2944,0"; url = "http://localhost:8080/screen2" },
-    @{ dir = "C:\rackmon\kiosk3"; pos = "3968,0"; url = "http://localhost:8080/screen3" }
+    @{ dir = "C:\rackmon\kiosk1"; pos = "0,0"; url = "http://localhost:8080/screen1" },
+    @{ dir = "C:\rackmon\kiosk2"; pos = "1024,0"; url = "http://localhost:8080/screen2" },
+    @{ dir = "C:\rackmon\kiosk3"; pos = "2048,0"; url = "http://localhost:8080/screen3" }
 )
 
 foreach ($k in $kiosks) {
