@@ -3,10 +3,14 @@ on localhost kiosks; the server binds 127.0.0.1 by default."""
 
 from __future__ import annotations
 
+import asyncio
+import sys
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
+
+KIOSK_WATCHDOG_TASK = "RackMonKioskWatchdog"
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -70,6 +74,31 @@ def build_router(ctx) -> APIRouter:
             raise HTTPException(404, f"unknown checklist action '{action}'")
         ctx.engine.tick()
         return ctx.store.get("checklist")
+
+    @router.post("/api/kiosk/relaunch")
+    async def api_kiosk_relaunch() -> dict:
+        """Rescue button (e.g. from a Stream Deck): kill all Chrome kiosks,
+        then fire the RackMonKioskWatchdog scheduled task, which relaunches
+        them in the logged-in user's session (a Windows service can't open
+        windows on the desktop itself — the task does it on our behalf)."""
+        if sys.platform != "win32":
+            raise HTTPException(501, "kiosk relaunch only works on the Windows mini PC")
+
+        async def run(*args: str) -> tuple[int, str]:
+            proc = await asyncio.create_subprocess_exec(
+                *args, stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT)
+            out, _ = await proc.communicate()
+            return proc.returncode or 0, out.decode(errors="replace")[:300].strip()
+
+        kill_rc, _ = await run("taskkill", "/f", "/im", "chrome.exe")
+        task_rc, task_out = await run("schtasks", "/run", "/tn", KIOSK_WATCHDOG_TASK)
+        if task_rc != 0:
+            raise HTTPException(500, (
+                f"chrome killed={kill_rc == 0} but the '{KIOSK_WATCHDOG_TASK}' "
+                f"scheduled task failed to start: {task_out} — create it per "
+                "docs/KIOSK.md step 5"))
+        return {"killed_chrome": kill_rc == 0, "watchdog_triggered": True}
 
     @router.get("/api/debug/flags")
     async def api_debug_flags() -> dict:

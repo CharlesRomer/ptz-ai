@@ -88,3 +88,9 @@ def test_config_error_app():
         page = c.get("/screen1")
         assert page.status_code == 200
         assert "cannot start" in page.text
+
+
+def test_kiosk_relaunch_windows_only(client):
+    import sys
+    if sys.platform != "win32":
+        assert client.post("/api/kiosk/relaunch").status_code == 501
