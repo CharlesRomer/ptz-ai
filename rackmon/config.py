@@ -77,6 +77,8 @@ class CameraConfig(BaseModel):
     obs_source: Optional[str] = None
     atem_input: Optional[int] = None  # ATEM input number for the tally border
     fps: float = 4.0
+    # VISCA control address; defaults to the rtsp/snapshot URL's host
+    visca_ip: Optional[str] = None
 
     @model_validator(mode="after")
     def _check_mode_requirements(self) -> "CameraConfig":
@@ -87,6 +89,25 @@ class CameraConfig(BaseModel):
         if self.mode == "obs" and not self.obs_source:
             raise ValueError(f"camera '{self.id}': mode 'obs' requires obs_source")
         return self
+
+
+class ControllerMap(BaseModel):
+    index: int  # XInput slot 0-3 (order controllers were plugged in)
+    camera: str  # camera id from the cameras: list
+
+
+class ControlConfig(BaseModel):
+    """Xbox controllers -> PTZ cameras (VISCA-over-IP), read via XInput."""
+    enabled: bool = False
+    visca_port: int = 1259
+    poll_hz: float = 30.0
+    deadzone: float = 0.25
+    invert_tilt: bool = False
+    max_pan_speed: int = 18   # full stick = this VISCA speed (1-24)
+    max_tilt_speed: int = 14  # (1-20)
+    max_zoom_speed: int = 5   # (1-7)
+    keepalive_s: float = 0.4  # re-send an active move this often
+    controllers: list[ControllerMap] = Field(default_factory=list)
 
 
 class VideoConfig(BaseModel):
@@ -116,6 +137,7 @@ class Config(BaseModel):
     system: SystemConfig = Field(default_factory=SystemConfig)
     cameras: list[CameraConfig] = Field(default_factory=list)
     video: VideoConfig = Field(default_factory=VideoConfig)
+    control: ControlConfig = Field(default_factory=ControlConfig)
     youtube: YoutubeConfig = Field(default_factory=YoutubeConfig)
     checklist_file: str = "config/checklist.yaml"
 
@@ -125,6 +147,18 @@ class Config(BaseModel):
         dupes = {i for i in ids if ids.count(i) > 1}
         if dupes:
             raise ValueError(f"duplicate camera ids: {', '.join(sorted(dupes))}")
+        return self
+
+    @model_validator(mode="after")
+    def _check_controller_mappings(self) -> "Config":
+        if not self.control.enabled:
+            return self
+        ids = {c.id for c in self.cameras}
+        for m in self.control.controllers:
+            if m.camera not in ids:
+                raise ValueError(
+                    f"control.controllers: camera '{m.camera}' is not in the "
+                    f"cameras list ({', '.join(sorted(ids)) or 'empty'})")
         return self
 
 
@@ -155,6 +189,7 @@ def default_mock_config() -> Config:
         ping_targets=[
             PingTarget(label="WiFi Extender", ip="192.168.1.3"),
             PingTarget(label="Building Router", ip="192.168.1.1"),
+            PingTarget(label="Internet", ip="8.8.8.8"),
         ],
         cameras=[
             CameraConfig(id="cam1", label="Cam 1", mode="mock", atem_input=1),
@@ -164,6 +199,11 @@ def default_mock_config() -> Config:
             CameraConfig(id="pgm", label="PROGRAM", mode="mock"),
             CameraConfig(id="pvw", label="PREVIEW", mode="mock"),
         ],
+        control=ControlConfig(enabled=True, controllers=[
+            ControllerMap(index=0, camera="cam1"),
+            ControllerMap(index=1, camera="cam2"),
+            ControllerMap(index=2, camera="cam3"),
+        ]),
     )
 
 

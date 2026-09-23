@@ -58,6 +58,11 @@
         t.ok ? ('reachable · ' + t.rtt_ms + ' ms') : 'UNREACHABLE'));
     });
 
+    // Xbox controllers (only when PTZ control is enabled)
+    if (s.control) {
+      tiles.push(tile(s.control.status, 'PTZ Controllers', s.control.message || ''));
+    }
+
     // YouTube (only when configured)
     if (s.youtube) {
       tiles.push(tile(s.youtube.status, 'YouTube', s.youtube.message || ''));

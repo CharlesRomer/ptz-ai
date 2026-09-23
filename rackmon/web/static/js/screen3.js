@@ -4,8 +4,49 @@
   const checkView = document.getElementById('view-checklist');
   const toggleBtn = document.getElementById('toggle');
   let mode = localStorage.getItem('screen3mode') || 'stream';
-  const bitrateHistory = []; // [t_ms, kbps], ~5 minutes
   let lastState = null;
+
+  // rolling 5-minute charts under the stat boxes
+  const HISTORY_MS = 300000;
+  const charts = {
+    kbps: { id: 'ch-kbps', label: 'upload bitrate', unit: ' kbps', color: '#1db954', hist: [] },
+    drop: { id: 'ch-drop', label: 'dropped frames', unit: ' %', color: '#e5484d', hist: [], max: 5 },
+    ping: { id: 'ch-ping', label: 'internet ping', unit: ' ms', color: '#4ea1ff', hist: [] },
+    cpu:  { id: 'ch-cpu',  label: 'OBS CPU',       unit: ' %', color: '#e8b93e', hist: [], max: 100 }
+  };
+
+  function pushChart(c, value) {
+    if (value === null || value === undefined || isNaN(value)) return;
+    c.hist.push([Date.now(), value]);
+    while (c.hist.length && Date.now() - c.hist[0][0] > HISTORY_MS) c.hist.shift();
+  }
+
+  function drawChart(c) {
+    const cv = document.getElementById(c.id);
+    if (!cv || !cv.clientWidth) return;
+    cv.width = cv.clientWidth; cv.height = cv.clientHeight;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const cur = c.hist.length ? c.hist[c.hist.length - 1][1] : null;
+    ctx.fillStyle = '#9aa0a6'; ctx.font = '12px system-ui';
+    ctx.fillText(c.label + (cur !== null ? ':' : ' — no data'), 8, 15);
+    if (cur !== null) {
+      ctx.fillStyle = c.color; ctx.font = 'bold 13px system-ui';
+      ctx.fillText(Math.round(cur * 10) / 10 + c.unit, 10 + ctx.measureText(c.label).width, 15);
+    }
+    if (c.hist.length < 2) return;
+    const peak = Math.max.apply(null, c.hist.map(function (p) { return p[1]; }));
+    const top = Math.max(peak, c.max || 0) * 1.15 || 1;
+    const t0 = c.hist[0][0];
+    const span = Math.max(c.hist[c.hist.length - 1][0] - t0, 1);
+    ctx.strokeStyle = c.color; ctx.lineWidth = 2; ctx.beginPath();
+    c.hist.forEach(function (p, i) {
+      const x = ((p[0] - t0) / span) * (cv.width - 8) + 4;
+      const y = cv.height - 4 - (p[1] / top) * (cv.height - 26);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+  }
 
   function setMode(m) {
     mode = m;
@@ -56,12 +97,14 @@
     document.getElementById('atemline').textContent =
       'ATEM: ' + (atem.message || 'no data');
 
-    if (st.active && st.kbps != null) {
-      bitrateHistory.push([Date.now(), st.kbps]);
-      while (bitrateHistory.length && Date.now() - bitrateHistory[0][0] > 300000)
-        bitrateHistory.shift();
-    }
-    drawSpark();
+    if (st.active) pushChart(charts.kbps, st.kbps);
+    pushChart(charts.drop, st.dropped_pct);
+    pushChart(charts.cpu, stats.cpu_pct);
+    const inet = ((s.ping || {}).targets || []).filter(function (t) {
+      return t.ip === '8.8.8.8' || /internet/i.test(t.label);
+    })[0];
+    if (inet && inet.ok) pushChart(charts.ping, inet.rtt_ms);
+    Object.keys(charts).forEach(function (k) { drawChart(charts[k]); });
   }
 
   function setBadge(id, on, text, cls) {
@@ -73,26 +116,6 @@
     const el = document.getElementById(id);
     el.textContent = value;
     el.className = 'v ' + cls;
-  }
-
-  function drawSpark() {
-    const cv = document.getElementById('spark');
-    const ctx = cv.getContext('2d');
-    cv.width = cv.clientWidth; cv.height = cv.clientHeight;
-    ctx.clearRect(0, 0, cv.width, cv.height);
-    if (bitrateHistory.length < 2) return;
-    const max = Math.max.apply(null, bitrateHistory.map(function (p) { return p[1]; })) * 1.15;
-    const t0 = bitrateHistory[0][0];
-    const span = Math.max(bitrateHistory[bitrateHistory.length - 1][0] - t0, 1);
-    ctx.strokeStyle = '#1db954'; ctx.lineWidth = 2; ctx.beginPath();
-    bitrateHistory.forEach(function (p, i) {
-      const x = ((p[0] - t0) / span) * (cv.width - 8) + 4;
-      const y = cv.height - 4 - (p[1] / max) * (cv.height - 8);
-      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-    });
-    ctx.stroke();
-    ctx.fillStyle = '#9aa0a6'; ctx.font = '12px system-ui';
-    ctx.fillText('bitrate, last 5 min', 8, 14);
   }
 
   /* ---------- checklist view ---------- */

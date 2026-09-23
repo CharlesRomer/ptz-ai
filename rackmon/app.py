@@ -28,7 +28,7 @@ from .video.hub import FrameHub, make_placeholder
 log = logging.getLogger("rackmon")
 
 STATIC_DIR = Path(__file__).parent / "web" / "static"
-BROADCAST_INTERVAL = 1.0
+BROADCAST_INTERVAL = 0.5  # fast enough for the live controller-input bars
 
 
 @dataclass
@@ -154,6 +154,15 @@ def create_app(config: Config | None, config_error: str | None = None) -> FastAP
     pollers = make_pollers(ctx)
     sources = make_video_sources(ctx)
 
+    controller = None
+    if config.control.enabled and config.control.controllers:
+        if config.mock:
+            from .gamepad import MockGamepadControl
+            controller = MockGamepadControl(config, store, scenario)
+        else:
+            from .gamepad import GamepadControl
+            controller = GamepadControl(config, store)
+
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
         store.update("meta", {
@@ -170,6 +179,8 @@ def create_app(config: Config | None, config_error: str | None = None) -> FastAP
                  for p in pollers]
         tasks += [asyncio.create_task(s.run(), name=f"video:{s.cam.id}")
                   for s in sources]
+        if controller is not None:
+            tasks.append(asyncio.create_task(controller.run(), name="gamepad"))
         tasks.append(asyncio.create_task(broadcast_loop(ctx), name="broadcast"))
         log.info("rackmon up: %d pollers, %d video sources, mock=%s",
                  len(pollers), len(sources), config.mock)

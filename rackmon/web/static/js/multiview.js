@@ -15,6 +15,15 @@
       return '<div class="cam" id="cam-' + c.id + '">' +
         '<img id="img-' + c.id + '" alt="">' +
         '<div class="nosignal">NO SIGNAL</div>' +
+        '<div class="ctl" id="ctl-' + c.id + '" style="display:none">' +
+          '<span class="ctl-dot" id="ctldot-' + c.id + '"></span>' +
+          '<span class="ctl-pad" id="ctlpad-' + c.id + '"></span>' +
+          ['pan', 'tilt', 'zoom'].map(function (axis) {
+            return '<div class="ctl-row"><span>' + axis[0].toUpperCase() + '</span>' +
+              '<div class="ctl-bar"><div class="ctl-fill" id="ctl-' + axis + '-' + c.id +
+              '"></div></div></div>';
+          }).join('') +
+        '</div>' +
         '<div class="cam-label">' + esc(c.label) + '</div></div>';
     }).join('');
     cameras.forEach(function (c) {
@@ -64,7 +73,33 @@
       }
       el.classList.toggle('live', live);
       el.classList.toggle('next', next);
+
+      updateControlOverlay(c.id, ((s.control || {}).cameras || {})[c.id]);
     });
+  }
+
+  function setBar(id, value) {
+    var fill = document.getElementById(id);
+    if (!fill) return;
+    var pct = Math.min(Math.abs(value || 0), 1) * 50;
+    fill.style.width = pct + '%';
+    fill.style.left = value < 0 ? (50 - pct) + '%' : '50%';
+    fill.classList.toggle('on', Math.abs(value || 0) > 0.01);
+  }
+
+  function updateControlOverlay(camId, ctl) {
+    var box = document.getElementById('ctl-' + camId);
+    if (!box) return;
+    if (!ctl) { box.style.display = 'none'; return; }
+    box.style.display = 'flex';
+    var dot = document.getElementById('ctldot-' + camId);
+    dot.className = 'ctl-dot ' + (ctl.connected ? 'on' : 'off');
+    dot.title = 'Controller ' + ctl.controller;
+    document.getElementById('ctlpad-' + camId).textContent = '🎮' + ctl.controller;
+    box.classList.toggle('active', !!ctl.moving);
+    setBar('ctl-pan-' + camId, ctl.pan);
+    setBar('ctl-tilt-' + camId, ctl.tilt);
+    setBar('ctl-zoom-' + camId, ctl.zoom);
   }
 
   function esc(s) {

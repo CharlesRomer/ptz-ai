@@ -81,6 +81,39 @@ header h1 { font-size: 20px; font-weight: 600; color: var(--muted); }
   font-size: 15px; font-weight: 600; padding: 3px 10px; border-radius: 0 6px 0 0;
 }
 .cam.live .cam-label { background: var(--live); }
+
+/* controller input overlay, top-right of a camera tile */
+.ctl {
+  position: absolute; top: 6px; right: 6px;
+  display: flex; flex-direction: column; gap: 2px;
+  background: rgba(0,0,0,.6); border-radius: 6px;
+  padding: 5px 7px; min-width: 74px;
+  border: 1px solid transparent;
+}
+.ctl.active { border-color: rgba(255,255,255,.45); }
+.ctl-dot {
+  position: absolute; top: 5px; right: 6px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--unknown);
+}
+.ctl-dot.on  { background: var(--ok); }
+.ctl-dot.off { background: var(--error); }
+.ctl-pad { font-size: 10px; color: #ccc; line-height: 1; margin-bottom: 2px; }
+.ctl-row { display: flex; align-items: center; gap: 4px; }
+.ctl-row > span { font-size: 9px; color: var(--muted); width: 7px; }
+.ctl-bar {
+  position: relative; flex: 1; height: 5px;
+  background: rgba(255,255,255,.14); border-radius: 3px; overflow: hidden;
+}
+.ctl-bar::after {   /* center tick */
+  content: ""; position: absolute; left: 50%; top: 0; bottom: 0;
+  width: 1px; background: rgba(255,255,255,.3);
+}
+.ctl-fill {
+  position: absolute; top: 0; bottom: 0; width: 0; left: 50%;
+  background: var(--muted); border-radius: 3px;
+}
+.ctl-fill.on { background: #4ea1ff; }
+
 .nosignal {
   position: absolute; inset: 0; display: none;
   align-items: center; justify-content: center;
@@ -121,7 +154,14 @@ header h1 { font-size: 20px; font-weight: 600; color: var(--muted); }
 .stat .v.warn { color: var(--warn); }
 .stat .v.error { color: var(--error); }
 .stat .k { font-size: 13px; color: var(--muted); margin-top: 2px; }
-#spark { width: 100%; height: 90px; background: var(--panel); border-radius: 10px; }
+.chartgrid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 10px;
+}
+.chartgrid canvas {
+  width: 100%; height: 96px;
+  background: var(--panel); border-radius: 10px;
+}
 .ytline { margin-top: 10px; font-size: 16px; color: var(--muted); }
 
 /* checklist */

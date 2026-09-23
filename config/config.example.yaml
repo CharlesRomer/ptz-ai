@@ -121,6 +121,25 @@ cameras:
     obs_source: "Preview"
     fps: 3
 
+# ---------- Xbox controllers -> PTZ cameras (optional) ----------
+# The backend reads the controllers directly via Windows XInput (works no
+# matter which window has focus) and sends VISCA-over-IP to the cameras.
+# index = the XInput slot (0-3, usually the order they were plugged in);
+# camera = an id from the cameras: list. The camera's VISCA address is
+# taken from its rtsp_url host automatically (or set visca_ip per camera).
+control:
+  enabled: false
+  visca_port: 1259        # PTZOptics default
+  deadzone: 0.25
+  invert_tilt: false      # true if pushing up should tilt down
+  max_pan_speed: 18       # full stick = this speed (1-24)
+  max_tilt_speed: 14      # (1-20)
+  max_zoom_speed: 5       # (1-7), zoom on the triggers: RT=in LT=out
+  controllers:
+    - {index: 0, camera: cam1}
+    - {index: 1, camera: cam2}
+    - {index: 2, camera: cam3}
+
 video:
   # Windows: download ffmpeg (see docs/SETUP.md) and put the full path here.
   ffmpeg_path: "C:\\rackmon\\ffmpeg\\bin\\ffmpeg.exe"

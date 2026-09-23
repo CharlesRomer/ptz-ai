@@ -16,6 +16,7 @@ FLAGS = {
     "obs_drop_frames": "OBS: drop frames",
     "stream_off": "OBS: stop streaming",
     "wifi_down": "WiFi extender offline",
+    "controller_unplugged": "Unplug controller 2",
     "disk_full": "Recording disk almost full",
     "freeze_tally": "Freeze tally rotation",
 }
