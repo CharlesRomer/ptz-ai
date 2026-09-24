@@ -66,6 +66,9 @@ class SystemConfig(BaseModel):
     disk_error_pct: float = 95.0
     cpu_warn_pct: float = 85.0
     poll_interval: float = 3.0
+    # If set, warn on the health board when this machine does not hold this
+    # IP (catches static-IP typos and DHCP surprises that break the rack).
+    expected_ip: Optional[str] = None
 
 
 class CameraConfig(BaseModel):

@@ -27,6 +27,15 @@ class SysInfoPoller(BasePoller):
     def __init__(self, config, store):
         super().__init__(config, store, config.system.poll_interval)
 
+    def _own_ips(self) -> list[str]:
+        import socket
+        ips = []
+        for addrs in psutil.net_if_addrs().values():
+            for a in addrs:
+                if a.family == socket.AF_INET and not a.address.startswith("127."):
+                    ips.append(a.address)
+        return ips
+
     async def poll(self) -> None:
         cfg = self.config.system
         cpu = psutil.cpu_percent(interval=None)
@@ -47,6 +56,11 @@ class SysInfoPoller(BasePoller):
 
         status, message = OK, f"CPU {cpu:.0f}% · up {_fmt_uptime(uptime)}"
         worst = max((d["pct"] for d in disks if d["pct"] is not None), default=0)
+        own_ips = self._own_ips()
+        if cfg.expected_ip and cfg.expected_ip not in own_ips:
+            status, message = WARN, (
+                f"WRONG IP: this PC should be {cfg.expected_ip} but has "
+                f"{', '.join(own_ips) or 'no address'}")
         if any(d["pct"] is None for d in disks):
             status, message = WARN, "A configured disk could not be read"
         if cpu > cfg.cpu_warn_pct:
@@ -62,4 +76,5 @@ class SysInfoPoller(BasePoller):
             "uptime_s": int(uptime),
             "uptime": _fmt_uptime(uptime),
             "disks": disks,
+            "ips": own_ips,
         }, status=status, message=message)

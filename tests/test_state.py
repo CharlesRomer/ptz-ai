@@ -46,3 +46,23 @@ def test_resolve_path():
     assert resolve_path(data, "a.b.9.c") is None
     assert resolve_path(data, "a.x") is None
     assert resolve_path(data, "a.b.zap") is None
+
+
+def test_expected_ip_warning():
+    import asyncio
+    from rackmon.config import default_mock_config
+    from rackmon.pollers.sysinfo import SysInfoPoller
+    from rackmon.state import StateStore
+
+    cfg = default_mock_config()
+    cfg.system.expected_ip = "203.0.113.99"  # an address this machine won't have
+    store = StateStore()
+    asyncio.run(SysInfoPoller(cfg, store).poll())
+    section = store.get("system")
+    assert section["status"] == "warn"
+    assert "WRONG IP" in section["message"]
+    assert "ips" in section
+
+    cfg.system.expected_ip = None
+    asyncio.run(SysInfoPoller(cfg, store).poll())
+    assert "WRONG IP" not in store.get("system")["message"]
