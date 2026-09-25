@@ -75,6 +75,24 @@ def build_router(ctx) -> APIRouter:
         ctx.engine.tick()
         return ctx.store.get("checklist")
 
+    @router.post("/api/restart")
+    async def api_restart() -> dict:
+        """Restart the RackMon service via NSSM (Windows only).
+        Returns immediately; NSSM brings the process back up automatically."""
+        if sys.platform != "win32":
+            raise HTTPException(501, "service restart only works on the Windows mini PC")
+
+        async def _delayed_restart() -> None:
+            await asyncio.sleep(0.6)
+            import subprocess
+            subprocess.Popen(
+                ["C:\\rackmon\\nssm.exe", "restart", "RackMon"],
+                creationflags=0x00000208,  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            )
+
+        asyncio.create_task(_delayed_restart())
+        return {"restarting": True}
+
     @router.post("/api/kiosk/relaunch")
     async def api_kiosk_relaunch() -> dict:
         """Rescue button (e.g. from a Stream Deck): kill all Chrome kiosks,

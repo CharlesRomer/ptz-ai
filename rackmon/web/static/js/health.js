@@ -58,6 +58,37 @@
         t.ok ? ('reachable · ' + t.rtt_ms + ' ms') : 'UNREACHABLE'));
     });
 
+    // Live network throughput
+    const net = s.netstats || {};
+    if (net.status !== undefined) {
+      var netDetail;
+      if (net.up_mbps !== null && net.up_mbps !== undefined) {
+        netDetail = '↑ ' + net.up_mbps + ' Mbps  ↓ ' + net.down_mbps + ' Mbps';
+        if (net.iface) netDetail += '\n' + net.iface;
+      } else {
+        netDetail = net.message || 'Measuring…';
+      }
+      tiles.push(tile(net.status || 'ok', 'Network Speed', netDetail));
+    }
+
+    // Camera feed health
+    const meta = s.meta || {};
+    const staleAfter = meta.stale_after || 10;
+    (meta.cameras || []).forEach(function (c) {
+      const age = (s.frames || {})[c.id];
+      const ok = age !== undefined && age < staleAfter;
+      var feedDetail;
+      if (age === undefined) {
+        feedDetail = 'no frames received';
+      } else if (!ok) {
+        feedDetail = 'stale — ' + age.toFixed(0) + 's ago';
+      } else {
+        feedDetail = 'live · ' + age.toFixed(1) + 's';
+        if (c.ip) feedDetail += ' · ' + c.ip;
+      }
+      tiles.push(tile(ok ? 'ok' : 'error', c.label + ' Feed', feedDetail));
+    });
+
     // Xbox controllers (only when PTZ control is enabled)
     if (s.control) {
       tiles.push(tile(s.control.status, 'PTZ Controllers', s.control.message || ''));

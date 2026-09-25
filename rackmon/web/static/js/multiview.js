@@ -24,7 +24,9 @@
               '"></div></div></div>';
           }).join('') +
         '</div>' +
-        '<div class="cam-label">' + esc(c.label) + '</div></div>';
+        '<div class="cam-label">' + esc(c.label) +
+          (c.ip ? '<span class="cam-ip">' + esc(c.ip) + '</span>' : '') +
+        '</div></div>';
     }).join('');
     cameras.forEach(function (c) {
       let busy = false;

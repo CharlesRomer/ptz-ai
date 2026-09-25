@@ -81,6 +81,10 @@ header h1 { font-size: 20px; font-weight: 600; color: var(--muted); }
   font-size: 15px; font-weight: 600; padding: 3px 10px; border-radius: 0 6px 0 0;
 }
 .cam.live .cam-label { background: var(--live); }
+.cam-ip {
+  display: block; font-size: 11px; font-weight: 400;
+  color: rgba(255,255,255,.6); letter-spacing: .3px; margin-top: 1px;
+}
 
 /* controller input overlay, top-right of a camera tile */
 .ctl {

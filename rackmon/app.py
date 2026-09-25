@@ -59,13 +59,14 @@ def make_pollers(ctx: AppContext) -> list:
         ]
 
     from .pollers.atem import AtemPoller
+    from .pollers.netstats import NetStatsPoller
     from .pollers.obs import ObsPoller
     from .pollers.pingcheck import PingPoller
     from .pollers.snmp_switch import SnmpSwitchPoller
     from .pollers.sysinfo import SysInfoPoller
     from .pollers.youtube import YoutubePoller
 
-    pollers: list = [SysInfoPoller(cfg, ctx.store)]
+    pollers: list = [SysInfoPoller(cfg, ctx.store), NetStatsPoller(cfg, ctx.store)]
     if cfg.ping_targets:
         pollers.append(PingPoller(cfg, ctx.store))
     if cfg.atem.ip:
@@ -163,13 +164,26 @@ def create_app(config: Config | None, config_error: str | None = None) -> FastAP
             from .gamepad import GamepadControl
             controller = GamepadControl(config, store)
 
+    def _cam_ip(cam) -> str | None:
+        from urllib.parse import urlparse
+        if cam.visca_ip:
+            return cam.visca_ip
+        for url in [cam.rtsp_url, cam.snapshot_url]:
+            if url:
+                try:
+                    return urlparse(url).hostname
+                except Exception:  # noqa: BLE001
+                    pass
+        return None
+
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
         store.update("meta", {
             "app": f"rackmon {__version__}",
             "mock": config.mock,
             "stale_after": config.video.stale_after,
-            "cameras": [{"id": c.id, "label": c.label, "atem_input": c.atem_input}
+            "cameras": [{"id": c.id, "label": c.label, "atem_input": c.atem_input,
+                         "ip": _cam_ip(c)}
                         for c in config.cameras],
         }, status="ok")
         for cam in config.cameras:
