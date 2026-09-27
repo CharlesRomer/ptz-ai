@@ -6,6 +6,7 @@ Run once at login via a LaunchAgent — see com.rackmon.launcher.plist.
 Listens on 127.0.0.1:8090 (localhost only).
 """
 
+import socket
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -17,6 +18,15 @@ APPS = [
     "ATEM Software Control",
     "Hive",
 ]
+
+VISCA_PORT = 1259
+CAM_IPS = {
+    "cam1": "192.168.100.86",
+    "cam2": "192.168.100.87",
+    "cam3": "192.168.100.88",
+}
+AF_ON  = bytes([0x81, 0x01, 0x04, 0x38, 0x02, 0xFF])
+AF_OFF = bytes([0x81, 0x01, 0x04, 0x38, 0x03, 0xFF])
 
 URLS = [
     "http://192.168.100.86",
@@ -90,6 +100,18 @@ class Handler(BaseHTTPRequestHandler):
             opened = launch_all()
             body = ("opened: " + ", ".join(opened) if opened else "nothing new to open")
             self._respond(200, body.encode())
+        elif self.path.startswith("/af/"):
+            # /af/cam1/on  or  /af/cam2/off
+            parts = self.path.strip("/").split("/")
+            if len(parts) == 3 and parts[1] in CAM_IPS and parts[2] in ("on", "off"):
+                ip = CAM_IPS[parts[1]]
+                cmd = AF_ON if parts[2] == "on" else AF_OFF
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.sendto(cmd, (ip, VISCA_PORT))
+                s.close()
+                self._respond(200, f"af {parts[2]} → {ip}".encode())
+            else:
+                self._respond(400, b"usage: /af/cam1|cam2|cam3/on|off")
         else:
             self._respond(404, b"not found")
 
