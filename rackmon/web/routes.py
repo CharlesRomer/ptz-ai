@@ -118,6 +118,34 @@ def build_router(ctx) -> APIRouter:
                 "docs/KIOSK.md step 5"))
         return {"killed_chrome": kill_rc == 0, "watchdog_triggered": True}
 
+    @router.post("/api/camera/{cam_id}/af/{mode}")
+    async def api_af(cam_id: str, mode: str) -> dict:
+        """Toggle autofocus: mode = 'on' or 'off'.
+        Sends a one-shot VISCA UDP packet directly to the camera."""
+        cam = next((c for c in ctx.config.cameras if c.id == cam_id), None)
+        if cam is None:
+            raise HTTPException(404, f"unknown camera '{cam_id}'")
+
+        from urllib.parse import urlparse
+        from ..visca import ViscaSender, af_on, af_off
+
+        ip = cam.visca_ip or (urlparse(cam.rtsp_url).hostname if cam.rtsp_url else None)
+        if not ip:
+            raise HTTPException(422, f"camera '{cam_id}' has no VISCA IP")
+
+        if mode == "on":
+            cmd = af_on()
+        elif mode == "off":
+            cmd = af_off()
+        else:
+            raise HTTPException(400, "mode must be 'on' or 'off'")
+
+        port = ctx.config.control.visca_port
+        sender = ViscaSender(port)
+        sender.send(ip, cmd)
+        sender.close()
+        return {"camera": cam_id, "af": mode, "ip": ip}
+
     @router.get("/api/debug/flags")
     async def api_debug_flags() -> dict:
         if ctx.scenario is None:

@@ -60,6 +60,16 @@ def home() -> bytes:
     return bytes([0x81, 0x01, 0x06, 0x04, 0xFF])
 
 
+def af_on() -> bytes:
+    """Enable continuous autofocus."""
+    return bytes([0x81, 0x01, 0x04, 0x38, 0x02, 0xFF])
+
+
+def af_off() -> bytes:
+    """Switch to manual focus."""
+    return bytes([0x81, 0x01, 0x04, 0x38, 0x03, 0xFF])
+
+
 class ViscaSender:
     """One shared non-blocking UDP socket; sendto per camera IP."""
 
